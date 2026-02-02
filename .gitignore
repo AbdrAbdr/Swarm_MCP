@@ -3,3 +3,5 @@ dist/
 .DS_Store
 .env
 .swarm-local/
+12312.md
+*.draft

@@ -1,404 +1,337 @@
-# MCP Swarm v0.7.0
+# MCP Swarm v0.9.0
 
-**Multi-Agent Coordination Platform** — система для координации до 50+ AI-агентов, работающих над одним проектом на разных машинах (Windows/Mac/Linux).
+**Multi-Agent Coordination Platform** — MCP-сервер для координации до 50+ AI-агентов, работающих над одним проектом на разных машинах (Windows/Mac/Linux).
 
-## Что нового в v0.7.0 (26 новых tools)
+## Что это такое?
 
-### 1. Spec Pipeline (6 tools)
-Структурированный pipeline для создания спецификаций через **4 роли**:
-- **Gatherer** — сбор требований, ограничений, контекста
-- **Researcher** — исследование prior art, паттернов, tradeoffs
-- **Writer** — написание спецификации
-- **Critic** — ревью и выявление gaps/issues
+MCP Swarm — это система, которая позволяет нескольким AI-агентам (Claude, Cursor, Windsurf, OpenCode и др.) работать **одновременно** над одним проектом без конфликтов.
+
+## Зачем это нужно?
+
+**Проблема:** Когда несколько агентов работают над одним репозиторием:
+- Они редактируют одни и те же файлы → конфликты
+- Они не знают, что делают другие → дублирование работы
+- Нет координации → хаос
+
+**Решение:** MCP Swarm обеспечивает:
+- **Orchestrator** — первый агент становится координатором
+- **File Locking** — только один может редактировать файл
+- **Messaging** — агенты общаются между собой
+- **Task Distribution** — аукцион задач
+- **Real-time Sync** — все видят изменения мгновенно
+
+## Как работает система агентов?
+
+### Архитектура: Orchestrator + Executors
 
 ```
-start_spec_pipeline → start_spec_phase → complete_spec_phase (loop) → export_spec_as_markdown
+┌─────────────────────────────────────────────────────┐
+│                  ПЕРВЫЙ АГЕНТ                       │
+│                 (ORCHESTRATOR)                      │
+│  - Автоматически избирается (first-come-first-win) │
+│  - Работает в БЕСКОНЕЧНОМ ЦИКЛЕ                    │
+│  - Только пользователь может остановить            │
+│  - Координирует всех исполнителей                  │
+└────────────────────────┬────────────────────────────┘
+                         │
+         ┌───────────────┼───────────────┐
+         ▼               ▼               ▼
+┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+│ EXECUTOR 1  │  │ EXECUTOR 2  │  │ EXECUTOR N  │
+│  (Claude)   │  │  (Cursor)   │  │ (Windsurf)  │
+│ Исполнитель │  │ Исполнитель │  │ Исполнитель │
+│ Берёт задачи│  │ Берёт задачи│  │ Берёт задачи│
+│ Heartbeat   │  │ Heartbeat   │  │ Heartbeat   │
+└─────────────┘  └─────────────┘  └─────────────┘
 ```
 
-### 2. QA Loop (7 tools)
-Итеративные циклы **reviewer → fixer → loop** до прохождения всех проверок:
-- `start_qa_loop` — начать QA loop
-- `run_qa_iteration` — запустить проверки
-- `log_qa_fix` — записать исправление
-- `get_qa_fix_suggestions` — получить предложения
-- `generate_qa_report` — сгенерировать отчёт
+### Как ведёт себя каждый агент?
 
-### 3. Guard Hooks (6 tools)
-**Pre-commit** и **pre-push** safety hooks:
-- Автоматически запускают lint, type check, tests
-- Bypass через `[skip-hooks]` в commit message
-- Настраиваемые проверки
+#### 1. ORCHESTRATOR (Координатор)
 
-### 4. Tool Clusters (7 tools)
-Организация **156+ tools** по **13 категориям**:
+**Кто становится:** Первый агент, вызвавший `swarm_orchestrator(action: "elect")`
 
-| Кластер | Tools | Описание |
-|---------|-------|----------|
-| 🤖 agent | 10 | Agent management, health, specialization |
-| 📋 task | 11 | Task create, assign, decompose |
-| 🔒 file | 9 | File locks, conflict prediction |
-| 🌿 git | 7 | Worktrees, PRs, branch management |
-| 💬 collab | 12 | Chat, reviews, knowledge sharing |
-| 🛡️ safety | 13 | Voting, snapshots, emergency controls |
-| ✅ quality | 16 | Quality gates, QA loops, regression |
-| 🔍 debug | 13 | Systematic debugging |
-| 📝 plan | 26 | Brainstorming, plans, spec pipeline |
-| 🪝 hooks | 6 | Guard hooks |
-| 🎬 session | 5 | Session recording |
-| 💰 cost | 9 | Cost tracking, context compression |
-| 📚 docs | 5 | Auto-documentation |
+**Что делает:**
+- Работает в **бесконечном цикле** (как Ralf Wigum)
+- Читает список задач, распределяет их
+- Следит за здоровьем всех агентов (heartbeat)
+- Переназначает задачи если агент "умер"
+- НЕ останавливается по API — только пользователь может сказать "стоп"
 
----
+**Цикл работы:**
+```
+1. Poll событий → 2. Проверить inbox → 3. Распределить задачи →
+4. Проверить heartbeats → 5. Обновить dashboard → [повторить]
+```
 
-## Что было в v0.6.0 (33 tools)
+#### 2. EXECUTOR (Исполнитель)
 
-### 1. Brainstorming Skill (9 tools)
-Интерактивный дизайн через **вопросы по одному** (из [obra/superpowers](https://github.com/obra/superpowers)):
-- `start_brainstorm` — начать сессию brainstorming
-- `ask_brainstorm_question` — задать вопрос (ONE at a time, multiple choice preferred)
-- `answer_brainstorm_question` — записать ответ пользователя
-- `propose_approaches` — предложить варианты с pros/cons
-- `present_design_section` — представить секцию дизайна (200-300 слов max!)
-- `validate_design_section` — валидация секции
-- `save_design_document` — сохранить в `docs/plans/`
-- `get_brainstorm_session` — статус сессии
-- `list_brainstorm_sessions` — список сессий
+**Кто становится:** Все остальные агенты после Orchestrator
 
-### 2. Writing Plans Skill (11 tools)
-TDD-планы с **bite-sized задачами** (2-5 минут каждая):
-- `create_implementation_plan` — создать план
-- `add_plan_task` — добавить задачу с TDD-шагами
-- `get_next_task` — следующая задача (учитывает dependencies)
-- `start_plan_task` — начать работу
-- `complete_step` — завершить TDD-шаг (write_test → run_test → implement → verify → commit)
-- `complete_plan_task` — завершить задачу
-- `generate_subagent_prompt` — генерировать промпт для субагента
-- `export_plan_as_markdown` — экспорт в markdown
-- `get_plan_status` — статус плана
-- `list_plans` — список планов
-- `mark_plan_ready` — пометить готовым к выполнению
+**Что делает:**
+- Регистрируется у Orchestrator
+- Получает задачи через аукцион или прямое назначение
+- Блокирует файлы перед редактированием
+- Отправляет heartbeat каждые N минут
+- Общается с другими агентами через messaging
+- Делает PR когда задача готова
 
-### 3. Systematic Debugging (13 tools)
-4-фазный процесс дебага — **NO FIXES WITHOUT ROOT CAUSE!**
-- **Phase 1: Investigation** — `start_debug_session`, `log_investigation`, `add_evidence`, `complete_phase_1`
-- **Phase 2: Pattern Analysis** — `log_patterns`, `complete_phase_2`
-- **Phase 3: Hypothesis** — `form_hypothesis`, `test_hypothesis`
-- **Phase 4: Implementation** — `implement_fix`, `verify_fix`
-- **Utility** — `get_debug_session`, `list_debug_sessions`, `check_red_flags`
+**Цикл работы:**
+```
+1. Проверить inbox → 2. Взять задачу → 3. Заблокировать файлы →
+4. Работать → 5. Освободить файлы → 6. Отправить heartbeat → [повторить]
+```
 
-**Red Flags (если думаете так — STOP!):**
-- "Let me just try..."
-- "Maybe if I..."
-- "This should fix it..."
-- "I'll just add a check..."
+#### 3. GHOST MODE (Режим призрака)
+
+**Когда активируется:** Агент выполнил задачу и ждёт новую
+
+**Что делает:**
+- Патрулирует код: проверяет lint ошибки
+- Оптимизирует импорты
+- Ищет проблемы в коде других агентов
 
 ---
 
-## Что было в v0.5.0
+## Установка
 
-### Agent Health Monitor
-- `check_agent_health`, `get_dead_agents`, `force_reassign_task`, `get_swarm_health_summary`
-
-### Session Recording
-- `start_session_recording`, `log_session_action`, `stop_session_recording`, `list_session_recordings`, `replay_session`
-
-### Quality Gate
-- `run_quality_gate`, `get_quality_report`, `set_quality_threshold`, `check_pr_ready`
-
-### Cost Tracker
-- `log_api_usage`, `get_agent_costs`, `get_project_costs`, `set_budget_limit`, `check_budget_remaining`
-
-### Context Compressor
-- `estimate_context_size`, `compress_briefing`, `compress_multiple_briefings`, `get_compression_stats`
-
-### Regression Detector
-- `save_baseline`, `check_regression`, `list_regressions`, `resolve_regression`, `list_baselines`
-
----
-
-## Что было в v0.4.x
-
-### v0.4.2: Timeline Visualization
-- `generate_timeline`, `get_timeline_visualization`
-
-### v0.4.1: Auto-Documentation & ML Features
-- **Auto-Documentation** — автогенерация docs при завершении задач
-- **Agent Specialization** — ML-подбор агента по экспертизе
-- **Conflict Prediction** — предсказание merge-конфликтов
-
----
-
-## Возможности
-
-### 🎯 Orchestrator (Центр Управления)
-Все файлы координации хранятся в `/orchestrator/`:
-- **PULSE.md** — живая карта агентов в реальном времени
-- **KNOWLEDGE_BASE.md** — коллективная база знаний
-- **briefings/** — ментальные слепки для передачи контекста
-- **snapshots/** — снапшоты для отката изменений
-- **docs/** — авто-документация
-- **sessions/** — записи сессий (v0.5)
-- **quality/** — отчёты качества (v0.5)
-- **costs/** — логи расходов (v0.5)
-- **baselines/** — эталонные метрики (v0.5)
-- **specs/** — spec pipelines (v0.7)
-- **qa-loops/** — QA loop сессии (v0.7)
-
-### 🤖 Agent Features
-- **Уникальные имена** — RadiantWolf, SilentFox и т.д.
-- **Специализация** — система запоминает экспертизу каждого агента
-- **Ghost Mode** — патрулирование кода когда нет задач
-- **Health Monitor** — автоматическое обнаружение "мёртвых" агентов (v0.5)
-
-### 🔄 Collaboration
-- **Task Decomposition** — разбиение больших задач на подзадачи
-- **Architecture Voting** — голосование для опасных действий
-- **Collective Advice** — коллективный мозговой штурм
-- **Cross-Platform Check** — проверка UI на разных платформах
-- **Session Recording** — запись и replay действий (v0.5)
-
-### 🛡️ Safety
-- **Snapshot & Rollback** — откат изменений при ошибках
-- **Urgent Preemption** — приоритетный захват файлов для критичных багов
-- **Immune System** — автоматическая реакция на падение CI/тестов
-- **Conflict Prediction** — предсказание merge-конфликтов
-- **Quality Gate** — автопроверки перед merge (v0.5)
-- **Regression Detector** — обнаружение ухудшений метрик (v0.5)
-
-### 💰 Observability (v0.5)
-- **Cost Tracker** — отслеживание расходов на API
-- **Context Compressor** — сжатие контекста для экономии токенов
-- **Health Summary** — общее состояние swarm
-
-### 🌐 Real-time (Cloudflare Hub)
-- WebSocket broadcast между агентами
-- Task claim с anti-duplication
-- File locks (1 writer, many readers)
-- Auction system для задач
-
----
-
-## 🚀 Quick Start
+### Быстрый старт
 
 ```bash
-# 1. Установка
+# 1. Клонировать репозиторий
+git clone https://github.com/AbdrAbdr/Swarm_MCP.git
+cd Swarm_MCP
+
+# 2. Установить зависимости
 npm install
+
+# 3. Собрать проект
 npm run build
 
-# 2. Установка в IDE (Windsurf/Cursor/Claude/OpenCode)
+# 4. Установить MCP во все IDE автоматически
 npm run install-mcp
+```
 
-# 3. Запуск companion daemon (опционально)
-npm run companion
+### Что делает `npm run install-mcp`?
+
+Скрипт автоматически:
+
+1. **Находит установленные IDE:**
+   - Claude Desktop
+   - Cursor
+   - Windsurf
+   - VS Code
+   - OpenCode
+
+2. **Добавляет MCP конфигурацию:**
+   - В `claude_desktop_config.json` (Claude)
+   - В `mcp.json` (Cursor, Windsurf)
+   - В соответствующие конфиги других IDE
+
+3. **Создаёт файлы правил для агентов:**
+
+| IDE | Файл правил | Описание |
+|-----|-------------|----------|
+| Claude | `CLAUDE.md` | Правила для Claude Desktop |
+| OpenCode | `GEMINI.md` | Правила для OpenCode/Gemini |
+| Cursor | `.cursorrules` | Правила для Cursor |
+| Windsurf | `.windsurfrules` | Правила для Windsurf |
+
+### Что прописывается в файлах правил?
+
+Каждый файл содержит инструкции для агента:
+
+```markdown
+# MCP Swarm Agent Rules
+
+## CRITICAL: Always Start with MCP Swarm
+
+Before ANY coding task, you MUST:
+
+1. **Register yourself** - Call `swarm_agent(action: "register")`
+2. **Check swarm status** - Call `swarm_control(action: "status")`
+3. **Check task list** - Call `swarm_task(action: "list")`
+4. **Reserve files** - Before editing, call `swarm_file(action: "reserve")`
+
+## Workflow Rules
+
+1. agent_register → Get your name (e.g., "RadiantWolf")
+2. task_list → See what needs to be done
+3. file_reserve → Lock files you'll edit
+4. Do your work
+5. file_release → Unlock files
+6. sync_with_base_branch → Rebase before push
+7. create_github_pr → Open PR for review
+```
+
+### Конфигурация MCP
+
+#### Claude Desktop (`claude_desktop_config.json`)
+
+```json
+{
+  "mcpServers": {
+    "mcp-swarm": {
+      "command": "node",
+      "args": ["C:/path/to/MCP0/dist/serverSmart.js"],
+      "env": {
+        "SWARM_REPO_PATH": "C:/path/to/your/project"
+      }
+    }
+  }
+}
+```
+
+#### Cursor/Windsurf (`mcp.json`)
+
+```json
+{
+  "mcpServers": {
+    "mcp-swarm": {
+      "command": "node",
+      "args": ["C:/path/to/MCP0/dist/serverSmart.js"],
+      "env": {
+        "SWARM_REPO_PATH": "C:/path/to/your/project"
+      }
+    }
+  }
+}
 ```
 
 ---
 
-## 📦 Tools (156+)
+## 41 Smart Tools (v0.9.0)
 
-### Brainstorming (v0.6)
-| Tool | Description |
-|------|-------------|
-| `start_brainstorm` | Начать сессию brainstorming |
-| `ask_brainstorm_question` | Задать вопрос (ONE at a time!) |
-| `answer_brainstorm_question` | Записать ответ пользователя |
-| `propose_approaches` | Предложить варианты с pros/cons |
-| `present_design_section` | Представить секцию (200-300 слов) |
-| `validate_design_section` | Валидация секции |
-| `save_design_document` | Сохранить в docs/plans/ |
-| `get_brainstorm_session` | Статус сессии |
-| `list_brainstorm_sessions` | Список сессий |
+Вместо 168+ отдельных tools, теперь есть **41 Smart Tool** с параметром `action`:
 
-### Writing Plans (v0.6)
-| Tool | Description |
-|------|-------------|
-| `create_implementation_plan` | Создать TDD план |
-| `add_plan_task` | Добавить задачу |
-| `get_next_task` | Следующая задача |
-| `start_plan_task` | Начать задачу |
-| `complete_step` | Завершить TDD шаг |
-| `complete_plan_task` | Завершить задачу |
-| `generate_subagent_prompt` | Промпт для субагента |
-| `export_plan_as_markdown` | Экспорт в MD |
-| `get_plan_status` | Статус плана |
-| `list_plans` | Список планов |
-| `mark_plan_ready` | Готов к выполнению |
+### Пример использования
 
-### Systematic Debugging (v0.6)
-| Tool | Description |
-|------|-------------|
-| `start_debug_session` | Phase 1: Investigation |
-| `log_investigation` | Логировать анализ |
-| `add_evidence` | Добавить evidence |
-| `complete_phase_1` | → Phase 2 |
-| `log_patterns` | Working examples |
-| `complete_phase_2` | → Phase 3 |
-| `form_hypothesis` | Сформулировать гипотезу |
-| `test_hypothesis` | Проверить гипотезу |
-| `implement_fix` | Phase 4: Fix |
-| `verify_fix` | Верифицировать |
-| `get_debug_session` | Статус сессии |
-| `list_debug_sessions` | Список сессий |
-| `check_red_flags` | Анти-паттерны |
+**До (v0.8.x):**
+```
+task_create, task_list, task_assign, task_set_status, task_mark_done... (9 tools)
+```
 
-### Agent & Health
-| Tool | Description |
-|------|-------------|
-| `agent_register` | Регистрация агента с уникальным именем |
-| `agent_whoami` | Получить информацию о текущем агенте |
-| `check_agent_health` | Проверить здоровье агента |
-| `get_dead_agents` | Найти "мёртвых" агентов |
-| `force_reassign_task` | Переназначить задачу |
-| `get_swarm_health_summary` | Общее здоровье swarm |
+**После (v0.9.0):**
+```javascript
+swarm_task({
+  action: "create" | "list" | "update" | "decompose" | "get_decomposition"
+})
+```
 
-### Tasks
-| Tool | Description |
-|------|-------------|
-| `task_create` | Создать задачу |
-| `task_list` | Список задач |
-| `task_assign` | Назначить задачу агенту |
-| `task_set_status` | Изменить статус задачи |
-| `task_mark_done` | Отметить задачу выполненной |
-| `decompose_task` | Разбить задачу на подзадачи |
+### Полный список Smart Tools
 
-### Files
-| Tool | Description |
-|------|-------------|
-| `file_reserve` | Заблокировать файл для редактирования |
-| `file_release` | Освободить файл |
-| `forecast_file_touches` | Анонсировать будущие изменения |
-| `check_file_conflicts` | Проверить конфликты |
-
-### Session Recording (v0.5)
-| Tool | Description |
-|------|-------------|
-| `start_session_recording` | Начать запись сессии |
-| `log_session_action` | Записать действие |
-| `stop_session_recording` | Остановить запись |
-| `list_session_recordings` | Список записей |
-| `replay_session` | Воспроизвести запись |
-
-### Quality Gate (v0.5)
-| Tool | Description |
-|------|-------------|
-| `run_quality_gate` | Запустить проверки качества |
-| `get_quality_report` | Получить отчёт |
-| `set_quality_threshold` | Установить пороги |
-| `check_pr_ready` | Готовность к merge |
-
-### Cost Tracker (v0.5)
-| Tool | Description |
-|------|-------------|
-| `log_api_usage` | Записать использование API |
-| `get_agent_costs` | Расходы агента |
-| `get_project_costs` | Расходы проекта |
-| `set_budget_limit` | Установить лимит |
-| `check_budget_remaining` | Остаток бюджета |
-
-### Context Compressor (v0.5)
-| Tool | Description |
-|------|-------------|
-| `estimate_context_size` | Оценить размер в токенах |
-| `compress_briefing` | Сжать briefing |
-| `compress_multiple_briefings` | Сжать несколько |
-| `get_compression_stats` | Статистика сжатия |
-
-### Regression Detector (v0.5)
-| Tool | Description |
-|------|-------------|
-| `save_baseline` | Сохранить эталон |
-| `check_regression` | Проверить регрессии |
-| `list_regressions` | Список регрессий |
-| `resolve_regression` | Исправить регрессию |
-| `list_baselines` | Список эталонов |
-
-### Collaboration
-| Tool | Description |
-|------|-------------|
-| `update_swarm_pulse` | Обновить статус в PULSE.md |
-| `save_briefing` | Сохранить ментальный слепок |
-| `archive_finding` | Добавить в базу знаний |
-| `request_collective_advice` | Запросить помощь |
-| `broadcast_chat` | Отправить сообщение всем |
-| `request_cross_agent_review` | Запросить ревью |
-
-### Safety
-| Tool | Description |
-|------|-------------|
-| `create_snapshot` | Создать снапшот |
-| `trigger_rollback` | Откатить к снапшоту |
-| `start_voting` | Начать голосование |
-| `trigger_urgent_preemption` | URGENT режим |
-| `check_main_health` | Здоровье main ветки |
-
-### Git & GitHub
-| Tool | Description |
-|------|-------------|
-| `worktree_create` | Создать Git worktree |
-| `worktree_list` | Список worktrees |
-| `sync_with_base_branch` | Rebase на main |
-| `create_github_pr` | Создать Pull Request |
-| `auto_delete_merged_branch` | Удалить merged ветку |
-
-### Auto-Documentation
-| Tool | Description |
-|------|-------------|
-| `generate_task_docs` | Создать документацию |
-| `list_task_docs` | Список документов |
-| `get_task_doc` | Получить документ |
-
-### Agent Specialization
-| Tool | Description |
-|------|-------------|
-| `record_agent_edit` | Записать экспертизу |
-| `suggest_agent_advanced` | Рекомендовать агента |
-| `get_top_experts` | Топ экспертов |
-
-### Conflict Prediction
-| Tool | Description |
-|------|-------------|
-| `analyze_conflict_history` | Анализ истории |
-| `get_conflict_hotspots` | Горячие точки |
-| `check_file_safety` | Безопасность файла |
+| # | Tool | Actions | Описание |
+|---|------|---------|----------|
+| 1 | `swarm_agent` | register, whoami | Идентификация агента |
+| 2 | `swarm_task` | create, list, update, decompose, get_decomposition | Управление задачами |
+| 3 | `swarm_file` | reserve, release, list, forecast, conflicts, safety | Блокировка файлов |
+| 4 | `swarm_git` | sync, pr, health, cleanup, cleanup_all | Git операции |
+| 5 | `swarm_worktree` | create, list, remove | Git worktrees |
+| 6 | `swarm_companion` | status, stop, pause, resume | Companion daemon |
+| 7 | `swarm_control` | stop, resume, status | Управление swarm |
+| 8 | `swarm_chat` | broadcast, dashboard, thought, thoughts | Командный чат |
+| 9 | `swarm_review` | request, respond, list | Code review |
+| 10 | `swarm_voting` | start, vote, list, get | Голосование |
+| 11 | `swarm_auction` | announce, bid, poll | Аукцион задач |
+| 12 | `swarm_mcp` | scan, authorize, policy | Сканирование MCP |
+| 13 | `swarm_orchestrator` | elect, info, heartbeat, resign, executors, executor_heartbeat | Оркестратор |
+| 14 | `swarm_message` | send, inbox, ack, reply, search, thread | Сообщения |
+| 15 | `swarm_briefing` | save, load | Брифинги |
+| 16 | `swarm_pulse` | update, get | Real-time статус |
+| 17 | `swarm_knowledge` | archive, search | База знаний |
+| 18 | `swarm_snapshot` | create, rollback, list | Снапшоты |
+| 19 | `swarm_health` | check, dead, reassign, summary | Здоровье агентов |
+| 20 | `swarm_quality` | run, report, threshold, pr_ready | Quality gate |
+| 21 | `swarm_cost` | log, agent, project, limit, remaining | Трекинг расходов |
+| 22 | `swarm_brainstorm` | start, ask, answer, propose, present, validate, save, get, list | Brainstorming |
+| 23 | `swarm_plan` | create, add, next, start, step, complete, prompt, export, status, list, ready | Планы |
+| 24 | `swarm_debug` | start, investigate, evidence, phase1, patterns, phase2, hypothesis, test, fix, verify, get, list, redflags | Дебаг |
+| 25 | `swarm_spec` | start, phase, complete, get, list, export | Spec pipeline |
+| 26 | `swarm_qa` | start, iterate, fix, get, list, suggest, report | QA loop |
+| 27 | `swarm_hooks` | install, uninstall, run, config, update, list | Git hooks |
+| 28 | `swarm_screenshot` | share, list | Скриншоты |
+| 29 | `swarm_dependency` | signal, sync | Зависимости |
+| 30 | `swarm_platform` | request, respond, list | Cross-platform |
+| 31 | `swarm_immune` | alert, resolve, status, test, patrol | Иммунная система |
+| 32 | `swarm_context` | estimate, compress, compress_many, stats | Сжатие контекста |
+| 33 | `swarm_regression` | baseline, check, list, resolve, baselines | Регрессии |
+| 34 | `swarm_expertise` | track, suggest, record, experts, list | Экспертиза |
+| 35 | `swarm_conflict` | predict, analyze, hotspots, record | Конфликты |
+| 36 | `swarm_timeline` | generate, visualize | Таймлайн |
+| 37 | `swarm_docs` | generate, task_docs, list, get | Документация |
+| 38 | `swarm_advice` | request, provide, list | Советы |
+| 39 | `swarm_preemption` | trigger, resolve, active | Preemption |
+| 40 | `swarm_clusters` | init, list, tools, find, add, create, summary | Tool clusters |
+| 41 | `swarm_session` | start, log, stop, list, replay | Записи сессий |
 
 ---
 
-## 📁 Project Structure
+## Структура проекта
 
 ```
+/swarm/                  # Данные swarm
+├── tasks/               # Файлы задач
+├── agents/              # Регистрации агентов
+├── locks/               # File locks
+├── EVENTS.ndjson        # Event log
+└── .swarm/
+    ├── ORCHESTRATOR.json    # Состояние оркестратора
+    ├── messages/            # Сообщения агентов
+    └── inbox/               # Inbox каждого агента
+
 /orchestrator/           # Центр управления
-  ├── PULSE.md           # Живая карта агентов
-  ├── KNOWLEDGE_BASE.md  # База знаний
-  ├── EXPERTISE.json     # Специализация агентов
-  ├── briefings/         # Ментальные слепки
-  ├── snapshots/         # Снапшоты для отката
-  ├── advice/            # Запросы на помощь
-  ├── docs/              # Авто-документация
-  ├── sessions/          # Записи сессий (v0.5)
-  ├── quality/           # Отчёты качества (v0.5)
-  ├── costs/             # Логи расходов (v0.5)
-  ├── baselines/         # Эталонные метрики (v0.5)
-  ├── regressions/       # Обнаруженные регрессии (v0.5)
-  ├── brainstorm/        # Brainstorm сессии (v0.6)
-  ├── plans/             # Implementation планы (v0.6)
-  └── debug/             # Debug сессии (v0.6)
-
-/docs/
-  └── plans/             # Сохранённые design documents (v0.6)
-
-/swarm/                  # Legacy (совместимость)
-  ├── tasks/             # Файлы задач
-  ├── agents/            # Регистрации агентов
-  ├── locks/             # File locks
-  └── EVENTS.ndjson      # Event log
-
-/cloudflare/             # Real-time Hub
-  └── src/index.ts       # Durable Object
+├── PULSE.md             # Живая карта агентов
+├── KNOWLEDGE_BASE.md    # База знаний
+├── briefings/           # Ментальные слепки
+├── snapshots/           # Снапшоты для отката
+├── docs/                # Авто-документация
+├── sessions/            # Записи сессий
+├── quality/             # Отчёты качества
+├── costs/               # Логи расходов
+├── brainstorm/          # Brainstorm сессии
+├── plans/               # Implementation планы
+├── debug/               # Debug сессии
+├── specs/               # Spec pipelines
+└── qa-loops/            # QA loop сессии
 ```
 
 ---
 
-## ⚙️ Environment Variables
+## Ключевые возможности
+
+### 1. Orchestrator Election
+Первый агент автоматически становится координатором. Все остальные — исполнители.
+
+### 2. File Locking
+Только один агент может редактировать файл. Остальные могут читать.
+
+### 3. Agent Messaging
+Агенты общаются между собой через inbox/outbox систему.
+
+### 4. Task Auction
+Задачи выставляются на аукцион. Агенты "торгуются" за них.
+
+### 5. Collective Advice
+Агент может запросить совет у всех остальных.
+
+### 6. Ghost Mode
+Свободный агент патрулирует код, ищет ошибки.
+
+### 7. Briefing Handover
+Агент оставляет "ментальный слепок" для следующего.
+
+### 8. Quality Gate
+Автоматические проверки перед PR.
+
+### 9. Cost Tracking
+Отслеживание расходов на API каждого агента.
+
+### 10. Session Recording
+Запись действий для replay и обучения.
+
+---
+
+## Environment Variables
 
 ```bash
 SWARM_REPO_PATH=        # Путь к репозиторию
@@ -409,39 +342,28 @@ SWARM_HYBRID_MODE=true  # WS + Git fallback
 
 ---
 
-## 🔧 IDE Integration
+## Команды
 
-При запуске `npm run install-mcp` автоматически:
-1. Проверяется наличие IDE (исполняемые файлы + стандартные пути)
-2. Добавляется MCP конфиг только для установленных IDE
-3. Создаются правила агента:
-   - `.windsurfrules` (Windsurf)
-   - `.cursorrules` (Cursor)
-   - `CLAUDE.md` (Claude Desktop)
-   - `GEMINI.md` (OpenCode)
+```bash
+# Запустить Smart Tools сервер (v0.9.0)
+npm run dev
 
-**Поддерживаемые IDE:**
-- Windsurf
-- Cursor
-- Claude Desktop
-- OpenCode
-- VS Code
+# Запустить Legacy сервер (168+ tools)
+npm run dev:legacy
 
----
+# Запустить Companion daemon
+npm run companion
 
-## 📝 Agent Rules
+# Установить MCP во все IDE
+npm run install-mcp
 
-Агенты обязаны:
-1. **Сначала** вызвать `agent_register`
-2. **Проверить** `task_list` и `get_swarm_pulse`
-3. **Заблокировать** файлы через `file_reserve`
-4. **Обновлять** статус через `update_swarm_pulse`
-5. **Записывать** сессию через `start_session_recording` (рекомендуется)
-6. **Сохранить** briefing перед завершением
+# Собрать проект
+npm run build
+```
 
 ---
 
-## 🔒 Security
+## Security
 
 - Токены GitHub/Cloudflare **НЕ** коммитить — используйте env vars
 - Voting для опасных действий (delete folder, change core)
@@ -450,92 +372,93 @@ SWARM_HYBRID_MODE=true  # WS + Git fallback
 
 ---
 
-## 📊 Metrics (v0.5)
-
-### Cost Tracking
-```typescript
-// Логирование расходов
-log_api_usage({
-  agentId: "RadiantWolf",
-  model: "claude-3-opus",
-  inputTokens: 5000,
-  outputTokens: 2000,
-  cost: 0.15
-});
-
-// Проверка бюджета
-check_budget_remaining(); // { remaining: 45.50, limit: 100, used: 54.50 }
-```
-
-### Quality Gate
-```typescript
-// Проверка качества
-run_quality_gate({ taskId: "task-123" });
-// { score: 85, passed: true, checks: [...] }
-
-// Готовность к PR
-check_pr_ready({ taskId: "task-123" });
-// { ready: true, blockers: [] }
-```
-
-### Regression Detection
-```typescript
-// Сохранить baseline
-save_baseline({
-  name: "v0.5.0-release",
-  metrics: { bundleSize: 1024000, testCount: 150, coverage: 85 }
-});
-
-// Проверить регрессии
-check_regression();
-// { regressions: [{ metric: "bundleSize", baseline: 1024000, current: 1200000, delta: 17.2% }] }
-```
-
----
-
-## 🧠 Методологии v0.6 (из obra/superpowers)
-
-### Brainstorming
-```
-1. Вопросы по ОДНОМУ (не списком!)
-2. Multiple choice preferred
-3. Категории: purpose, constraints, success_criteria, approach, tradeoffs
-4. Секции дизайна: 200-300 слов MAX
-5. Валидация каждой секции перед следующей
-```
-
-### Writing Plans (TDD)
-```
-1. Bite-sized tasks (2-5 минут каждая)
-2. TDD шаги: write_test → run_test (fail) → implement → verify (pass) → commit
-3. DRY — не повторяйся
-4. YAGNI — не добавляй лишнего
-5. Subagent prompts для параллельного выполнения
-```
-
-### Systematic Debugging (4 фазы)
-```
-Phase 1: ROOT CAUSE INVESTIGATION (NO FIXES YET!)
-  - Воспроизвести ошибку
-  - Собрать evidence (input/output компонентов)
-  
-Phase 2: PATTERN ANALYSIS
-  - Найти working examples
-  - Сравнить broken vs working
-  
-Phase 3: HYPOTHESIS & TESTING
-  - Сформулировать конкретную гипотезу
-  - Протестировать minimal reproduction
-  
-Phase 4: IMPLEMENTATION
-  - Исправить root cause
-  - Верифицировать fix
-```
-
-**Iron Law:** NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
-
----
-
 ## License
 
 MIT
+
+---
+
+# CHANGELOG
+
+## [0.9.0] - 2026-02-02
+
+### MAJOR: Smart Tools Consolidation
+
+**Reduces 168+ individual tools → 41 Smart Tools with `action` parameter**
+
+- Each Smart Tool groups 3-15 related functions via `action` parameter
+- Better discoverability and easier to remember
+- Consistent parameter patterns across all tools
+
+### Files Changed
+
+- `src/smartTools.ts` — All 41 Smart Tools
+- `src/serverSmart.ts` — New server entry point
+- `package.json` — v0.9.0, `npm run dev` uses Smart Tools
+
+---
+
+## [0.8.1] - 2026-02-02
+
+### Added
+- Smart Tools draft prototypes
+
+---
+
+## [0.8.0] - 2026-02-02
+
+### Added
+- **Orchestrator Election** (6 tools)
+- **Agent Messaging** (6 tools)
+- **Infinite Loop Mode**
+
+---
+
+## [0.7.0] - 2026-02-02
+
+### Added
+- **Spec Pipeline** (6 tools)
+- **QA Loop** (7 tools)
+- **Guard Hooks** (6 tools)
+- **Tool Clusters** (7 tools)
+
+---
+
+## [0.6.0] - 2026-02-01
+
+### Added
+- **Brainstorming Skill** (9 tools)
+- **Writing Plans Skill** (11 tools)
+- **Systematic Debugging** (13 tools)
+
+---
+
+## [0.5.0] - 2026-01-31
+
+### Added
+- Agent Health Monitor
+- Session Recording
+- Quality Gate
+- Cost Tracker
+- Context Compressor
+- Regression Detector
+
+---
+
+## [0.4.x]
+
+- Timeline Visualization
+- Auto-Documentation
+- Agent Specialization
+- Conflict Prediction
+
+---
+
+## [0.3.0] - [0.1.0]
+
+- Core functionality
+- Task management
+- File locking
+- Git worktrees
+- Team chat
+- Voting system
