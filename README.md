@@ -113,11 +113,11 @@ npm run build
 
 ---
 
-## Ручная установка по IDE
+## Ручная установка MCP
 
-### 1. Claude Desktop
+### Группа 1: Стандартный формат `mcpServers`
 
-**Конфиг:** `%APPDATA%\Claude\claude_desktop_config.json` (Windows) | `~/Library/Application Support/Claude/claude_desktop_config.json` (Mac)
+**Claude Desktop, Cursor, Windsurf** — используют одинаковый формат конфига:
 
 ```json
 {
@@ -133,20 +133,24 @@ npm run build
 }
 ```
 
-**Файл правил:** Создайте `CLAUDE.md` в корне вашего проекта.
+| IDE | Путь к конфигу |
+|-----|----------------|
+| **Claude Desktop** | Windows: `%APPDATA%\Claude\claude_desktop_config.json`<br>Mac: `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| **Cursor** | `~/.cursor/mcp.json` |
+| **Windsurf** | `~/.windsurf/mcp_config.json` |
 
 ---
 
-### 2. Claude Code (CLI)
+### Группа 2: Claude Code (CLI)
 
-**Установка через команду:**
+**Claude Code** — использует CLI команду или вложенную структуру в `~/.claude/.claude.json`:
 
+**Способ 1: CLI команда (рекомендуется)**
 ```bash
 claude mcp add mcp-swarm --transport stdio -- node C:/path/to/Swarm_MCP/dist/serverSmart.js
 ```
 
-Или добавьте в `~/.claude/.claude.json` в секцию `projects.{path}.mcpServers`:
-
+**Способ 2: Ручное редактирование** `~/.claude/.claude.json`:
 ```json
 {
   "projects": {
@@ -165,55 +169,11 @@ claude mcp add mcp-swarm --transport stdio -- node C:/path/to/Swarm_MCP/dist/ser
 }
 ```
 
-**Файл правил:** Создайте `CLAUDE.md` в корне вашего проекта.
-
 ---
 
-### 3. Cursor
+### Группа 3: OpenCode
 
-**Конфиг:** `~/.cursor/mcp.json`
-
-```json
-{
-  "mcpServers": {
-    "mcp-swarm": {
-      "command": "node",
-      "args": ["C:/path/to/Swarm_MCP/dist/serverSmart.js"],
-      "env": {
-        "SWARM_REPO_PATH": "C:/path/to/your/project"
-      }
-    }
-  }
-}
-```
-
-**Файл правил:** Создайте `.cursorrules` в корне вашего проекта.
-
----
-
-### 4. Windsurf
-
-**Конфиг:** `~/.windsurf/mcp_config.json` (Windows/Mac/Linux)
-
-```json
-{
-  "mcpServers": {
-    "mcp-swarm": {
-      "command": "node",
-      "args": ["C:/path/to/Swarm_MCP/dist/serverSmart.js"],
-      "env": {
-        "SWARM_REPO_PATH": "C:/path/to/your/project"
-      }
-    }
-  }
-}
-```
-
-**Файл правил:** Создайте `.windsurfrules` в корне вашего проекта.
-
----
-
-### 5. OpenCode
+**OpenCode** — использует свой формат с `mcp` (не `mcpServers`) и массив `command`:
 
 **Конфиг:** `~/.config/opencode/opencode.json`
 
@@ -235,21 +195,19 @@ claude mcp add mcp-swarm --transport stdio -- node C:/path/to/Swarm_MCP/dist/ser
 }
 ```
 
-**Файл правил:** Создайте `AGENT.md` в корне вашего проекта.
-
 ---
 
-### 6. Antigravity (Google)
+### Группа 4: Antigravity (Google)
 
-**Конфиг:** `%APPDATA%\antigravity\User\settings.json` (Windows) | `~/Library/Application Support/antigravity/User/settings.json` (Mac)
-
-MCP поддержка в Antigravity - через расширения. Добавьте конфигурацию аналогично VS Code.
+**Antigravity** — не поддерживает MCP напрямую. Используйте только файл правил.
 
 **Файл правил:** Создайте `GEMINI.md` в корне вашего проекта.
 
 ---
 
-### 7. VS Code (Roo-Cline)
+### Группа 5: VS Code (Roo-Cline)
+
+**VS Code с Roo-Cline** — использует свой путь:
 
 **Конфиг:** `%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json`
 
@@ -267,7 +225,42 @@ MCP поддержка в Antigravity - через расширения. Доб�
 }
 ```
 
-**Файл правил:** Создайте `.clinerules` в корне вашего проекта.
+---
+
+## Файлы правил для агентов
+
+После настройки MCP, создайте файл правил в корне вашего проекта:
+
+| IDE | Файл правил |
+|-----|-------------|
+| Claude Desktop | `CLAUDE.md` |
+| Claude Code | `CLAUDE.md` |
+| Cursor | `.cursorrules` |
+| Windsurf | `.windsurfrules` |
+| OpenCode | `AGENT.md` |
+| Antigravity | `GEMINI.md` |
+| VS Code (Roo-Cline) | `.clinerules` |
+
+### Содержимое файла правил
+
+Скопируйте это в ваш файл правил:
+
+```markdown
+# MCP Swarm Agent Rules (v0.9.0)
+
+## CRITICAL: Always Start with MCP Swarm
+
+Before ANY coding task:
+
+1. `swarm_agent({ action: "register" })` — получить имя агента
+2. `swarm_control({ action: "status" })` — проверить статус swarm
+3. `swarm_task({ action: "list" })` — посмотреть задачи
+4. `swarm_file({ action: "reserve", filePath, agent })` — заблокировать файлы
+
+## Workflow
+
+1. Register → 2. Get Task → 3. Lock Files → 4. Work → 5. Unlock → 6. PR
+```
 
 ---
 

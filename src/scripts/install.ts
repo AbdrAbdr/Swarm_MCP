@@ -41,7 +41,7 @@ const IDE_CONFIGS: IdeConfig[] = [
   {
     name: "OpenCode",
     configPaths: getOpenCodePaths(),
-    mcpKey: "mcpServers", // OpenCode использует mcpServers, не servers
+    mcpKey: "mcp", // OpenCode uses "mcp", not "mcpServers"
     executableNames: ["opencode", "opencode.exe"],
     processNames: ["opencode"],
   },
@@ -115,19 +115,16 @@ function getOpenCodePaths(): string[] {
   const home = os.homedir();
   if (process.platform === "win32") {
     return [
-      path.join(home, "AppData", "Roaming", "opencode", "mcp.json"),
-      path.join(home, ".opencode", "mcp.json"),
+      path.join(home, ".config", "opencode", "opencode.json"),
     ];
   }
   if (process.platform === "darwin") {
     return [
-      path.join(home, "Library", "Application Support", "opencode", "mcp.json"),
-      path.join(home, ".opencode", "mcp.json"),
+      path.join(home, ".config", "opencode", "opencode.json"),
     ];
   }
   return [
-    path.join(home, ".config", "opencode", "mcp.json"),
-    path.join(home, ".opencode", "mcp.json"),
+    path.join(home, ".config", "opencode", "opencode.json"),
   ];
 }
 
@@ -342,6 +339,20 @@ function getMcpSwarmConfig(projectPath: string): any {
   };
 }
 
+function getOpenCodeMcpConfig(projectPath: string): any {
+  const normalizedPath = path.normalize(projectPath);
+  const serverPath = path.join(normalizedPath, "dist", "serverSmart.js");
+
+  return {
+    type: "local",
+    command: ["node", serverPath],
+    enabled: true,
+    environment: {
+      SWARM_REPO_PATH: normalizedPath,
+    },
+  };
+}
+
 async function installToIde(ide: { name: string; configPath: string; mcpKey: string; verified: boolean }, projectPath: string): Promise<boolean> {
   let config = await readJsonSafe(ide.configPath);
   
@@ -357,8 +368,14 @@ async function installToIde(ide: { name: string; configPath: string; mcpKey: str
     config[ide.mcpKey] = {};
   }
 
-  const mcpConfig = getMcpSwarmConfig(projectPath);
-  config[ide.mcpKey]["mcp-swarm"] = mcpConfig;
+  // OpenCode uses different config format
+  if (ide.name === "OpenCode") {
+    const mcpConfig = getOpenCodeMcpConfig(projectPath);
+    config[ide.mcpKey]["mcp-swarm"] = mcpConfig;
+  } else {
+    const mcpConfig = getMcpSwarmConfig(projectPath);
+    config[ide.mcpKey]["mcp-swarm"] = mcpConfig;
+  }
 
   await writeJsonSafe(ide.configPath, config);
   return true;
@@ -486,7 +503,7 @@ function getAgentRulesPath(ideName: string, projectPath: string): string {
     case "Claude Desktop":
       return path.join(projectPath, "CLAUDE.md");
     case "OpenCode":
-      return path.join(projectPath, "CLAUDE.md"); // OpenCode читает CLAUDE.md
+      return path.join(projectPath, "AGENT.md"); // OpenCode uses AGENT.md
     case "VS Code":
       return path.join(projectPath, ".clinerules");
     default:
