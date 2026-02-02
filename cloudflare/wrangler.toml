@@ -1,0 +1,12 @@
+name = "mcp-swarm-hub"
+main = "src/index.ts"
+compatibility_date = "2025-12-01"
+
+[durable_objects]
+bindings = [
+  { name = "SWARM_ROOM", class_name = "SwarmRoom" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["SwarmRoom"]

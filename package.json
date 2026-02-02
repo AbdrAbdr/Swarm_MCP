@@ -1,0 +1,23 @@
+{
+  "name": "mcp-swarm",
+  "version": "0.6.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "node --enable-source-maps dist/server.js",
+    "companion": "node --enable-source-maps dist/companion.js",
+    "install-mcp": "node --enable-source-maps dist/scripts/install.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "ws": "^8.18.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260131.0",
+    "@types/node": "^22.10.2",
+    "@types/ws": "^8.18.0",
+    "typescript": "^5.6.3"
+  }
+}
