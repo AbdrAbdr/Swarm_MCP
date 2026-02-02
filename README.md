@@ -100,10 +100,31 @@
 
 ## ⚙️ Установка (Глобально)
 
-### 🪟 Windows
-1. Склонируйте в `C:/MCP/Swarm_MCP`.
-2. `npm install && npm run build`.
-3. Добавьте в `%APPDATA%\Claude\claude_desktop_config.json`:
+### Шаг 1: Клонирование и сборка
+
+```bash
+# Windows
+git clone https://github.com/AbdrAbdr/Swarm_MCP.git C:/MCP/Swarm_MCP
+cd C:/MCP/Swarm_MCP && npm install && npm run build
+
+# macOS
+git clone https://github.com/AbdrAbdr/Swarm_MCP.git ~/Documents/Swarm_MCP
+cd ~/Documents/Swarm_MCP && npm install && npm run build
+
+# Linux
+git clone https://github.com/AbdrAbdr/Swarm_MCP.git ~/mcp/Swarm_MCP
+cd ~/mcp/Swarm_MCP && npm install && npm run build
+```
+
+### Шаг 2: Конфигурация для вашей IDE
+
+<details>
+<summary><strong>🖥️ Claude Desktop</strong></summary>
+
+**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+**macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Linux:** `~/.config/claude/claude_desktop_config.json`
+
 ```json
 {
   "mcpServers": {
@@ -118,17 +139,21 @@
   }
 }
 ```
+</details>
 
-### 🍎 macOS
-1. Склонируйте в `~/Documents/Swarm_MCP`.
-2. `npm install && npm run build`.
-3. Добавьте в `~/Library/Application Support/Claude/claude_desktop_config.json`:
+<details>
+<summary><strong>🎯 Cursor</strong></summary>
+
+**Settings → Features → MCP Servers → Add New**
+
+Или создайте `.cursor/mcp.json` в домашней директории:
+
 ```json
 {
   "mcpServers": {
     "mcp-swarm": {
       "command": "node",
-      "args": ["/Users/USER/Documents/Swarm_MCP/dist/serverSmart.js"],
+      "args": ["C:/MCP/Swarm_MCP/dist/serverSmart.js"],
       "env": {
         "SWARM_HUB_URL": "wss://mcp-swarm-hub.unilife-ch.workers.dev/ws",
         "SWARM_PROJECT": "default"
@@ -137,6 +162,78 @@
   }
 }
 ```
+</details>
+
+<details>
+<summary><strong>🌊 Windsurf</strong></summary>
+
+**Cascade → Settings → MCP Servers → Add Server**
+
+Или создайте `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "mcp-swarm": {
+      "command": "node",
+      "args": ["C:/MCP/Swarm_MCP/dist/serverSmart.js"],
+      "env": {
+        "SWARM_HUB_URL": "wss://mcp-swarm-hub.unilife-ch.workers.dev/ws",
+        "SWARM_PROJECT": "default"
+      }
+    }
+  }
+}
+```
+</details>
+
+<details>
+<summary><strong>💻 OpenCode CLI</strong></summary>
+
+Создайте `~/.opencode/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "mcp-swarm": {
+      "command": "node",
+      "args": ["C:/MCP/Swarm_MCP/dist/serverSmart.js"],
+      "env": {
+        "SWARM_HUB_URL": "wss://mcp-swarm-hub.unilife-ch.workers.dev/ws",
+        "SWARM_PROJECT": "default"
+      }
+    }
+  }
+}
+```
+</details>
+
+<details>
+<summary><strong>🤖 VS Code + Copilot/Continue</strong></summary>
+
+Создайте `.vscode/mcp.json` в домашней директории:
+
+```json
+{
+  "servers": {
+    "mcp-swarm": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["C:/MCP/Swarm_MCP/dist/serverSmart.js"],
+      "env": {
+        "SWARM_HUB_URL": "wss://mcp-swarm-hub.unilife-ch.workers.dev/ws",
+        "SWARM_PROJECT": "default"
+      }
+    }
+  }
+}
+```
+</details>
+
+> **⚠️ Важно:** Замените `C:/MCP/Swarm_MCP` на актуальный путь к клонированному репозиторию!
+> - Windows: `C:/MCP/Swarm_MCP`
+> - macOS: `/Users/USERNAME/Documents/Swarm_MCP`
+> - Linux: `/home/USERNAME/mcp/Swarm_MCP`
 
 ---
 
@@ -145,3 +242,136 @@
 > **"Используй MCP Swarm. Зарегистрируйся и стань оркестратором, если ты первый."**
 
 Дальше магия произойдет сама. 🐝
+
+---
+
+## 🔧 Troubleshooting / Решение проблем
+
+<details>
+<summary><strong>❌ "Cannot find module" или "Error: ENOENT"</strong></summary>
+
+1. Проверьте, что проект собран:
+   ```bash
+   cd /path/to/Swarm_MCP
+   npm run build
+   ```
+2. Убедитесь, что путь в конфигурации правильный и ведёт к `dist/serverSmart.js`
+3. Используйте абсолютный путь (не `./` или `~`)
+
+</details>
+
+<details>
+<summary><strong>❌ Агент не становится оркестратором</strong></summary>
+
+Оркестратор может быть уже активен. Проверьте:
+```bash
+cat .swarm/ORCHESTRATOR.json
+```
+
+Если `lastHeartbeat` устарел более чем на 60 секунд, следующий агент автоматически возьмёт роль.
+
+Чтобы форсировать смену: удалите файл `.swarm/ORCHESTRATOR.json` или вызовите `swarm_orchestrator({ action: "resign", repoPath })`.
+
+</details>
+
+<details>
+<summary><strong>❌ "repoPath is required" ошибка</strong></summary>
+
+**КАЖДЫЙ** вызов MCP Swarm должен содержать `repoPath`:
+```typescript
+// ✅ Правильно
+swarm_agent({ action: "register", repoPath: "C:/projects/my-app" })
+
+// ❌ Неправильно
+swarm_agent({ action: "register" })
+```
+
+</details>
+
+<details>
+<summary><strong>❌ Cloudflare Hub недоступен</strong></summary>
+
+1. Проверьте интернет-соединение
+2. Hub URL: `wss://mcp-swarm-hub.unilife-ch.workers.dev/ws`
+3. При проблемах система автоматически использует локальный Git-fallback
+
+</details>
+
+<details>
+<summary><strong>❌ Папка swarm/ не создаётся автоматически</strong></summary>
+
+При первом вызове `swarm_agent({ action: "register", repoPath })` папка `swarm/` и все файлы правил должны создаться автоматически.
+
+Если не работает — вызовите вручную:
+```typescript
+swarm_agent({ action: "init", repoPath: "/path/to/project" })
+```
+
+</details>
+
+<details>
+<summary><strong>❌ Файлы заблокированы другим агентом</strong></summary>
+
+Проверьте кто держит блокировку:
+```typescript
+swarm_file({ action: "list", repoPath: "/path/to/project" })
+```
+
+Если агент «мёртв» (heartbeat > 60 сек), система автоматически освободит файлы.
+
+</details>
+
+---
+
+## 📊 Архитектура
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                CLOUDFLARE HUB (Always Running)              │
+│        wss://mcp-swarm-hub.unilife-ch.workers.dev/ws        │
+│          - WebSocket real-time sync                         │
+│          - Durable Objects for persistent state             │
+│          - Cross-machine coordination                       │
+└────────────────────────────────────────────────────────────┘
+                              │
+          ┌───────────────────┼───────────────────┐
+          ▼                   ▼                   ▼
+    ┌──────────┐        ┌──────────┐        ┌──────────┐
+    │ Windows  │        │   Mac    │        │  Linux   │
+    │ (Cursor) │        │(Windsurf)│        │(OpenCode)│
+    └──────────┘        └──────────┘        └──────────┘
+          │                   │                   │
+          └───────────────────┼───────────────────┘
+                              ▼
+                  ┌─────────────────────┐
+                  │   YOUR PROJECT      │
+                  │   /path/to/project  │
+                  │                     │
+                  │   .swarm/           │ ← State & messages
+                  │   swarm/            │ ← Tasks & agents
+                  │   orchestrator/     │ ← Plans & specs
+                  │   CLAUDE.md         │ ← Agent rules
+                  │   GEMINI.md         │
+                  └─────────────────────┘
+```
+
+---
+
+## 📝 Changelog
+
+См. [CHANGELOG.md](./CHANGELOG.md)
+
+---
+
+## 🤝 Contributing
+
+PRs welcome! Основные принципы:
+1. Все tool'ы должны принимать `repoPath`
+2. Состояние сохраняется в файлы (не в память)
+3. Тесты перед мерджем
+
+---
+
+## 📜 License
+
+MIT © 2025

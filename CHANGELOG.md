@@ -7,6 +7,43 @@
 
 ---
 
+## [0.9.1] - 2026-02-02
+
+### 📚 Documentation & UX Improvements
+
+#### Added
+- **Linux Installation Instructions** — полные инструкции для Linux
+- **IDE-Specific Configs** — отдельные конфигурации для:
+  - Claude Desktop (Windows/macOS/Linux)
+  - Cursor
+  - Windsurf
+  - OpenCode CLI
+  - VS Code + Copilot/Continue
+- **Troubleshooting Section** — решения частых проблем:
+  - "Cannot find module" errors
+  - Agent не становится оркестратором
+  - "repoPath is required" ошибка
+  - Cloudflare Hub недоступен
+  - Файлы заблокированы другим агентом
+- **Architecture Diagram** — ASCII-схема архитектуры Cloudflare Hub + Local Agents
+- **Contributing Guidelines** — правила для PR
+
+#### Changed
+- README.md полностью переработан с collapsible секциями (`<details>`)
+
+### 🔮 Future Improvements (Roadmap)
+
+#### Heartbeat Daemon Enhancement (Planned)
+Текущая проблема: когда агент "думает" (processing), он не может отправлять heartbeat, что может привести к ложному срабатыванию dead-detection после 60 секунд.
+
+Планируемые решения:
+1. **Background Worker** — отдельный процесс для heartbeat (требует Node.js worker_threads)
+2. **Longer Timeout** — увеличить HEARTBEAT_TIMEOUT_MS до 5 минут
+3. **Thinking State** — добавить состояние "thinking" которое не считается dead
+4. **Companion Daemon** — использовать существующий companion.ts для heartbeat
+
+---
+
 ## [0.9.0] - 2026-02-02
 
 ### 🚀 MAJOR: Smart Tools Consolidation
