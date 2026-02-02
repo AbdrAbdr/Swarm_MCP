@@ -39,6 +39,13 @@ const IDE_CONFIGS: IdeConfig[] = [
     processNames: ["claude", "Claude"],
   },
   {
+    name: "Antigravity",
+    configPaths: getAntigravityPaths(),
+    mcpKey: "mcpServers",
+    executableNames: ["antigravity", "antigravity.exe", "Antigravity.exe"],
+    processNames: ["antigravity", "Antigravity"],
+  },
+  {
     name: "OpenCode",
     configPaths: getOpenCodePaths(),
     mcpKey: "mcp", // OpenCode uses "mcp", not "mcpServers"
@@ -108,6 +115,23 @@ function getClaudePaths(): string[] {
   }
   return [
     path.join(home, ".config", "Claude", "claude_desktop_config.json"),
+  ];
+}
+
+function getAntigravityPaths(): string[] {
+  const home = os.homedir();
+  if (process.platform === "win32") {
+    return [
+      path.join(home, "AppData", "Roaming", "antigravity", "mcp_config.json"),
+    ];
+  }
+  if (process.platform === "darwin") {
+    return [
+      path.join(home, "Library", "Application Support", "antigravity", "mcp_config.json"),
+    ];
+  }
+  return [
+    path.join(home, ".config", "antigravity", "mcp_config.json"),
   ];
 }
 
@@ -237,6 +261,12 @@ function getStandardInstallPaths(ideName: string): string[] {
           path.join(programFiles, "Claude", "Claude.exe"),
         );
         break;
+      case "Antigravity":
+        paths.push(
+          path.join(localAppData, "Programs", "antigravity", "Antigravity.exe"),
+          path.join(programFiles, "Antigravity", "Antigravity.exe"),
+        );
+        break;
       case "OpenCode":
         paths.push(
           path.join(localAppData, "Programs", "opencode", "opencode.exe"),
@@ -259,6 +289,9 @@ function getStandardInstallPaths(ideName: string): string[] {
         break;
       case "Claude Desktop":
         paths.push("/Applications/Claude.app");
+        break;
+      case "Antigravity":
+        paths.push("/Applications/Antigravity.app");
         break;
       case "OpenCode":
         paths.push("/usr/local/bin/opencode", path.join(home, ".local", "bin", "opencode"));
@@ -502,6 +535,8 @@ function getAgentRulesPath(ideName: string, projectPath: string): string {
       return path.join(projectPath, ".cursorrules");
     case "Claude Desktop":
       return path.join(projectPath, "CLAUDE.md");
+    case "Antigravity":
+      return path.join(projectPath, "GEMINI.md"); // Antigravity uses GEMINI.md
     case "OpenCode":
       return path.join(projectPath, "AGENT.md"); // OpenCode uses AGENT.md
     case "VS Code":

@@ -117,7 +117,7 @@ npm run build
 
 ### Группа 1: Стандартный формат `mcpServers`
 
-**Claude Desktop, Cursor, Windsurf** — используют одинаковый формат конфига:
+**Claude Desktop, Cursor, Windsurf, Antigravity** — используют одинаковый формат конфига:
 
 ```json
 {
@@ -138,6 +138,7 @@ npm run build
 | **Claude Desktop** | Windows: `%APPDATA%\Claude\claude_desktop_config.json`<br>Mac: `~/Library/Application Support/Claude/claude_desktop_config.json` |
 | **Cursor** | `~/.cursor/mcp.json` |
 | **Windsurf** | `~/.windsurf/mcp_config.json` |
+| **Antigravity** | Windows: `%APPDATA%\antigravity\mcp_config.json`<br>Mac: `~/Library/Application Support/antigravity/mcp_config.json` |
 
 ---
 
@@ -197,15 +198,7 @@ claude mcp add mcp-swarm --transport stdio -- node C:/path/to/Swarm_MCP/dist/ser
 
 ---
 
-### Группа 4: Antigravity (Google)
-
-**Antigravity** — не поддерживает MCP напрямую. Используйте только файл правил.
-
-**Файл правил:** Создайте `GEMINI.md` в корне вашего проекта.
-
----
-
-### Группа 5: VS Code (Roo-Cline)
+### Группа 4: VS Code (Roo-Cline)
 
 **VS Code с Roo-Cline** — использует свой путь:
 
