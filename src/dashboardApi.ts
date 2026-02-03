@@ -551,6 +551,93 @@ async function getSONAStats(repoPath: string) {
   };
 }
 
+// Get Agent Booster stats
+async function getBoosterStats(repoPath: string) {
+  const statsPath = path.join(repoPath, ".swarm", "booster", "stats.json");
+  const configPath = path.join(repoPath, ".swarm", "booster", "config.json");
+  const historyPath = path.join(repoPath, ".swarm", "booster", "history.json");
+  
+  const stats = await readJson<{
+    totalTasks: number;
+    successfulTasks: number;
+    failedTasks: number;
+    totalChanges: number;
+    totalTimeSavedMs: number;
+    totalCostSaved: number;
+    byType: Record<string, { count: number; successRate: number; avgTimeMs: number }>;
+    lastUpdated: number;
+  }>(statsPath);
+  
+  const config = await readJson<{
+    enabled: boolean;
+    autoDetect: boolean;
+    maxFileSize: number;
+    backupBeforeChange: boolean;
+    dryRun: boolean;
+    estimatedLLMCostPerTask: number;
+  }>(configPath);
+  
+  const history = await readJson<Array<{
+    taskType: string;
+    filePath: string;
+    success: boolean;
+    changes: number;
+    timeMs: number;
+    savedCost: number;
+  }>>(historyPath);
+  
+  if (!stats) {
+    return {
+      enabled: config?.enabled ?? true,
+      configured: false,
+      message: "Agent Booster not initialized. Use swarm_booster({ action: 'execute', ... }) to start.",
+      supportedTypes: [
+        "rename_variable", "fix_typo", "find_replace", "add_console_log",
+        "remove_console_log", "toggle_flag", "update_version", "update_import",
+        "format_json", "sort_imports", "add_export", "extract_constant"
+      ],
+    };
+  }
+  
+  // Calculate type distribution
+  const typeDistribution: Record<string, number> = {};
+  for (const [type, data] of Object.entries(stats.byType || {})) {
+    typeDistribution[type] = data.count;
+  }
+  
+  // Recent history
+  const recentHistory = (history || []).slice(-10).reverse().map(h => ({
+    type: h.taskType,
+    file: h.filePath.split("/").pop() || h.filePath,
+    success: h.success,
+    changes: h.changes,
+    timeMs: h.timeMs,
+    savedCost: `$${h.savedCost.toFixed(3)}`,
+  }));
+  
+  return {
+    enabled: config?.enabled ?? true,
+    configured: true,
+    stats: {
+      totalTasks: stats.totalTasks,
+      successRate: stats.totalTasks > 0 
+        ? Math.round((stats.successfulTasks / stats.totalTasks) * 100) 
+        : 0,
+      totalChanges: stats.totalChanges,
+      timeSavedMinutes: Math.round(stats.totalTimeSavedMs / 60000),
+      costSaved: `$${stats.totalCostSaved.toFixed(2)}`,
+      lastUpdated: stats.lastUpdated,
+    },
+    config: {
+      autoDetect: config?.autoDetect ?? true,
+      backupBeforeChange: config?.backupBeforeChange ?? true,
+      dryRun: config?.dryRun ?? false,
+    },
+    typeDistribution,
+    recentHistory,
+  };
+}
+
 // Request handler
 async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
   // Handle CORS preflight
@@ -607,6 +694,9 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
       case "/api/sona":
         data = await getSONAStats(repoPath);
         break;
+      case "/api/booster":
+        data = await getBoosterStats(repoPath);
+        break;
       case "/api/health":
         data = { status: "ok", timestamp: Date.now() };
         break;
@@ -631,7 +721,7 @@ const server = http.createServer(handleRequest);
 server.listen(PORT, () => {
   console.log(`
 ╔════════════════════════════════════════════════════════╗
-║         MCP Swarm Dashboard API Server v0.9.5          ║
+║         MCP Swarm Dashboard API Server v0.9.6          ║
 ╠════════════════════════════════════════════════════════╣
 ║  API:       http://localhost:${PORT}                     ║
 ║  Dashboard: http://localhost:3333                      ║
@@ -650,6 +740,7 @@ server.listen(PORT, () => {
 ║    GET /api/sync         - External Sync статус        ║
 ║    GET /api/telegram     - Telegram Bot конфигурация   ║
 ║    GET /api/sona         - SONA статистика и профили   ║
+║    GET /api/booster      - Agent Booster статистика    ║
 ║    GET /api/health       - Проверка работоспособности  ║
 ╚════════════════════════════════════════════════════════╝
   `);
