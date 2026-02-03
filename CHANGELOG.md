@@ -51,6 +51,23 @@ swarm_telegram({ action: "notify_task_created", repoPath, taskId: "task-1", titl
 swarm_telegram({ action: "start_polling", repoPath })
 ```
 
+- **Cloudflare Worker for Telegram** (`cloudflare/telegram-bot/`)
+  - Webhook-based (no polling required)
+  - Deploy to Cloudflare Workers
+  - `/setup` endpoint for webhook registration
+
+- **Smart Tool #48: `swarm_batch`**
+  - Request batching for 50% cost savings
+  - Supports Anthropic Message Batches API
+  - Supports OpenAI Batch API
+  - Actions: `queue`, `config`, `set_config`, `job`, `jobs`, `result`, `stats`, `flush`
+
+- **Batching Module** (`src/workflows/batching.ts`)
+  - Automatic request grouping
+  - Configurable batch size and wait time
+  - Async batch processing with result polling
+  - Cost savings estimation
+
 ---
 
 ## [0.9.3] - 2026-02-03
