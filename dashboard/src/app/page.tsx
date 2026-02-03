@@ -14,13 +14,26 @@ import {
   RefreshCw,
   Settings,
   FileCode,
-  GitBranch
+  GitBranch,
+  Brain,
+  Search,
+  Shield,
+  Users2,
+  Sparkles
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { formatRelativeTime, getStatusColor, cn } from "@/lib/utils"
+import { 
+  SONAWidget, 
+  BoosterWidget, 
+  VectorWidget, 
+  DefenceWidget, 
+  ConsensusWidget, 
+  MoEWidget 
+} from "@/components/widgets/AdvancedWidgets"
 
 // Типы данных
 interface Agent {
@@ -461,17 +474,40 @@ export default function Dashboard() {
         </div>
       </div>
       
+      {/* Advanced AI Modules */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Brain className="w-5 h-5 text-primary" />
+            Advanced AI Modules
+          </CardTitle>
+          <CardDescription>
+            Продвинутые модули: SONA, Booster, Vector, Defence, Consensus, MoE
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <SONAWidget />
+            <BoosterWidget />
+            <VectorWidget />
+            <DefenceWidget />
+            <ConsensusWidget />
+            <MoEWidget />
+          </div>
+        </CardContent>
+      </Card>
+      
       {/* Footer */}
       <div className="text-center text-sm text-muted-foreground pt-4 border-t">
         <div className="flex items-center justify-center gap-4">
           <span className="flex items-center gap-1">
             <GitBranch className="w-4 h-4" />
-            MCP Swarm v0.9.1
+            MCP Swarm v0.9.10
           </span>
           <span>•</span>
           <span className="flex items-center gap-1">
             <FileCode className="w-4 h-4" />
-            41 Smart Tools
+            54 Smart Tools
           </span>
           <span>•</span>
           <a href="https://github.com/AbdrAbdr/Swarm_MCP" className="hover:text-primary transition-colors">
