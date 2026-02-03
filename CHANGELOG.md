@@ -61,6 +61,22 @@
 - **Dashboard API** (`src/dashboardApi.ts`)
   - HTTP API server on port 3334
   - Endpoints: `/api/agents`, `/api/tasks`, `/api/messages`, `/api/orchestrator`
+  - **New v0.9.3 endpoints:**
+    - `GET /api/expertise` — Smart Routing expertise map
+    - `GET /api/context` — Context Pool notes
+    - `GET /api/reviews` — Auto Review status
+    - `GET /api/budget` — Cost budget and usage
+    - `GET /api/sync` — External Sync status
+
+#### Smart Tools (42-46)
+
+| # | Tool | Actions | Description |
+|---|------|---------|-------------|
+| 42 | `swarm_routing` | record, find_agent, expertise, predict, auto_assign | Smart task routing based on file expertise |
+| 43 | `swarm_context_pool` | add, get, search_tag, search, helpful, update, cleanup, stats | Shared context notes between agents |
+| 44 | `swarm_autoreview` | create, assign, comment, complete, resolve, for_reviewer, for_author, pending, stats | Automatic code review assignment |
+| 45 | `swarm_external` | enable_github, enable_linear, sync_github, sync_linear, sync_all, export_github, export_linear, status, create_issue, close_issue, comment | GitHub/Linear sync |
+| 46 | `swarm_budget` | analyze, models, select, recommend, route, log_usage, usage, stats, config, set_config, check, remaining, report | Cost optimization and model routing |
 
 ---
 

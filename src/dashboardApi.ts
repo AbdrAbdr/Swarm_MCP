@@ -207,6 +207,203 @@ async function getStats(repoPath: string) {
   };
 }
 
+// Get expertise map (Smart Routing)
+async function getExpertise(repoPath: string) {
+  const expertisePath = path.join(repoPath, ".swarm", "EXPERTISE.json");
+  const expertise = await readJson<{
+    agents: Record<string, {
+      agentName: string;
+      fileEdits: Record<string, number>;
+      folderEdits: Record<string, number>;
+      totalEdits: number;
+    }>;
+  }>(expertisePath);
+  
+  if (!expertise) return { agents: [] };
+  
+  return {
+    agents: Object.values(expertise.agents).map(a => ({
+      name: a.agentName,
+      totalEdits: a.totalEdits,
+      topFiles: Object.entries(a.fileEdits)
+        .sort((x, y) => y[1] - x[1])
+        .slice(0, 5)
+        .map(([file, count]) => ({ file, count })),
+      topFolders: Object.entries(a.folderEdits)
+        .sort((x, y) => y[1] - x[1])
+        .slice(0, 5)
+        .map(([folder, count]) => ({ folder, count })),
+    })),
+  };
+}
+
+// Get context notes (Context Pool)
+async function getContextPool(repoPath: string) {
+  const indexPath = path.join(repoPath, ".swarm", "context", "INDEX.json");
+  const index = await readJson<{
+    notes: Record<string, {
+      id: string;
+      targetPath: string;
+      summary: string;
+      author: string;
+      tags: string[];
+      helpful: number;
+      stale: boolean;
+      createdAt: number;
+    }>;
+  }>(indexPath);
+  
+  if (!index) return { notes: [], stats: { total: 0, stale: 0, helpful: 0 } };
+  
+  const notes = Object.values(index.notes);
+  const stale = notes.filter(n => n.stale).length;
+  const totalHelpful = notes.reduce((sum, n) => sum + n.helpful, 0);
+  
+  return {
+    notes: notes.slice(-50).map(n => ({
+      id: n.id,
+      path: n.targetPath,
+      summary: n.summary,
+      author: n.author,
+      tags: n.tags,
+      helpful: n.helpful,
+      stale: n.stale,
+      createdAt: n.createdAt,
+    })),
+    stats: {
+      total: notes.length,
+      stale,
+      helpful: totalHelpful,
+    },
+  };
+}
+
+// Get reviews (Auto Review)
+async function getReviews(repoPath: string) {
+  const indexPath = path.join(repoPath, ".swarm", "reviews", "INDEX.json");
+  const index = await readJson<{
+    reviews: Record<string, {
+      id: string;
+      taskId: string;
+      taskTitle: string;
+      codeAuthor: string;
+      reviewer: string | null;
+      status: string;
+      changedFiles: string[];
+      comments: Array<{ severity: string; resolved: boolean }>;
+      createdAt: number;
+    }>;
+  }>(indexPath);
+  
+  if (!index) return { reviews: [], stats: { total: 0, pending: 0, approved: 0 } };
+  
+  const reviews = Object.values(index.reviews);
+  const pending = reviews.filter(r => r.status === "pending" || r.status === "in_progress").length;
+  const approved = reviews.filter(r => r.status === "approved").length;
+  
+  return {
+    reviews: reviews.slice(-20).map(r => ({
+      id: r.id,
+      taskId: r.taskId,
+      taskTitle: r.taskTitle,
+      author: r.codeAuthor,
+      reviewer: r.reviewer,
+      status: r.status,
+      filesCount: r.changedFiles.length,
+      commentsCount: r.comments.length,
+      blockersCount: r.comments.filter(c => c.severity === "blocker" && !c.resolved).length,
+      createdAt: r.createdAt,
+    })),
+    stats: {
+      total: reviews.length,
+      pending,
+      approved,
+    },
+  };
+}
+
+// Get budget status (Cost Optimization)
+async function getBudget(repoPath: string) {
+  const budgetPath = path.join(repoPath, ".swarm", "cost", "budget.json");
+  const usagePath = path.join(repoPath, ".swarm", "cost", "usage.json");
+  
+  const budget = await readJson<{
+    dailyLimit: number;
+    weeklyLimit: number;
+    monthlyLimit: number;
+  }>(budgetPath);
+  
+  const usage = await readJson<Array<{
+    cost: number;
+    timestamp: string;
+    model: string;
+    tier: string;
+  }>>(usagePath);
+  
+  if (!budget) {
+    return {
+      configured: false,
+      limits: { daily: 10, weekly: 50, monthly: 150 },
+      usage: { daily: 0, weekly: 0, monthly: 0 },
+    };
+  }
+  
+  const now = new Date();
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+  const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  
+  const records = usage || [];
+  const dailyUsage = records.filter(r => r.timestamp >= dayStart).reduce((s, r) => s + r.cost, 0);
+  const weeklyUsage = records.filter(r => r.timestamp >= weekStart).reduce((s, r) => s + r.cost, 0);
+  const monthlyUsage = records.filter(r => r.timestamp >= monthStart).reduce((s, r) => s + r.cost, 0);
+  
+  return {
+    configured: true,
+    limits: {
+      daily: budget.dailyLimit,
+      weekly: budget.weeklyLimit,
+      monthly: budget.monthlyLimit,
+    },
+    usage: {
+      daily: dailyUsage,
+      weekly: weeklyUsage,
+      monthly: monthlyUsage,
+    },
+    byModel: records.reduce((acc, r) => {
+      acc[r.model] = (acc[r.model] || 0) + r.cost;
+      return acc;
+    }, {} as Record<string, number>),
+  };
+}
+
+// Get sync status (External Sync)
+async function getSyncStatus(repoPath: string) {
+  const configPath = path.join(repoPath, ".swarm", "sync", "config.json");
+  const issuesPath = path.join(repoPath, ".swarm", "sync", "issues.json");
+  
+  const config = await readJson<{
+    github?: { enabled: boolean; owner: string; repo: string };
+    linear?: { enabled: boolean; teamId: string };
+  }>(configPath);
+  
+  const issues = await readJson<Array<{
+    source: string;
+    state: string;
+  }>>(issuesPath);
+  
+  return {
+    github: config?.github || { enabled: false },
+    linear: config?.linear || { enabled: false },
+    issues: {
+      total: issues?.length || 0,
+      open: issues?.filter(i => i.state === "open").length || 0,
+      github: issues?.filter(i => i.source === "github").length || 0,
+      linear: issues?.filter(i => i.source === "linear").length || 0,
+    },
+  };
+}
+
 // Request handler
 async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
   // Handle CORS preflight
@@ -242,6 +439,21 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
       case "/api/orchestrator":
         data = await getOrchestratorInfo(repoPath);
         break;
+      case "/api/expertise":
+        data = await getExpertise(repoPath);
+        break;
+      case "/api/context":
+        data = await getContextPool(repoPath);
+        break;
+      case "/api/reviews":
+        data = await getReviews(repoPath);
+        break;
+      case "/api/budget":
+        data = await getBudget(repoPath);
+        break;
+      case "/api/sync":
+        data = await getSyncStatus(repoPath);
+        break;
       case "/api/health":
         data = { status: "ok", timestamp: Date.now() };
         break;
@@ -265,21 +477,26 @@ const server = http.createServer(handleRequest);
 
 server.listen(PORT, () => {
   console.log(`
-╔════════════════════════════════════════════════════╗
-║       MCP Swarm Dashboard API Server               ║
-╠════════════════════════════════════════════════════╣
-║  API:       http://localhost:${PORT}                 ║
-║  Dashboard: http://localhost:3333                  ║
-╠════════════════════════════════════════════════════╣
-║  Endpoints:                                        ║
-║    GET /api/stats       - Статистика swarm         ║
-║    GET /api/agents      - Список агентов           ║
-║    GET /api/tasks       - Список задач             ║
-║    GET /api/messages    - Сообщения                ║
-║    GET /api/locks       - Блокировки файлов        ║
-║    GET /api/orchestrator - Инфо об оркестраторе    ║
-║    GET /api/health      - Проверка работоспособности║
-╚════════════════════════════════════════════════════╝
+╔════════════════════════════════════════════════════════╗
+║         MCP Swarm Dashboard API Server v0.9.3          ║
+╠════════════════════════════════════════════════════════╣
+║  API:       http://localhost:${PORT}                     ║
+║  Dashboard: http://localhost:3333                      ║
+╠════════════════════════════════════════════════════════╣
+║  Endpoints:                                            ║
+║    GET /api/stats        - Статистика swarm            ║
+║    GET /api/agents       - Список агентов              ║
+║    GET /api/tasks        - Список задач                ║
+║    GET /api/messages     - Сообщения                   ║
+║    GET /api/locks        - Блокировки файлов           ║
+║    GET /api/orchestrator - Инфо об оркестраторе        ║
+║    GET /api/expertise    - Smart Routing экспертиза    ║
+║    GET /api/context      - Context Pool заметки        ║
+║    GET /api/reviews      - Auto Review ревью           ║
+║    GET /api/budget       - Cost бюджет и использование ║
+║    GET /api/sync         - External Sync статус        ║
+║    GET /api/health       - Проверка работоспособности  ║
+╚════════════════════════════════════════════════════════╝
   `);
 });
 

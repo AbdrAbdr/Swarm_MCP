@@ -13,7 +13,8 @@
     "dashboard:ui": "cd dashboard && npm run dev",
     "dashboard:install": "cd dashboard && npm install",
     "dashboard": "concurrently \"npm run dashboard:api\" \"npm run dashboard:ui\"",
-    "dashboard:build": "cd dashboard && npm run build"
+    "dashboard:build": "cd dashboard && npm run build",
+    "test": "node --enable-source-maps dist/tests/newModules.test.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
