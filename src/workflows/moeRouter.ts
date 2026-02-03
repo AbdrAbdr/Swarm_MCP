@@ -560,13 +560,86 @@ const DEFAULT_EXPERTS: Expert[] = [
     successRate: 1.0,
   },
 
-  // ============ GOOGLE (Gemini 2.5 Series) ============
+  // ============ GOOGLE (Gemini 3.x and 2.5.x Series) ============
+  // Verified: https://cloud.google.com/vertex-ai/generative-ai/pricing (Feb 2026)
+  
+  // Gemini 3 Pro Preview - flagship reasoning model
+  {
+    id: "gemini-3-pro",
+    name: "Gemini 3 Pro",
+    provider: "google",
+    modelId: "gemini-3.0-pro-preview",
+    tier: "flagship",
+    capabilities: ["code_generation", "reasoning", "data_analysis", "creative", "planning", "math"],
+    strengthScores: {
+      code_generation: 0.96,
+      code_review: 0.94,
+      code_refactor: 0.92,
+      debugging: 0.93,
+      reasoning: 0.97,
+      math: 0.97,
+      creative: 0.92,
+      summarization: 0.93,
+      translation: 0.95,
+      data_analysis: 0.96,
+      quick_answer: 0.91,
+      conversation: 0.92,
+      planning: 0.95,
+      documentation: 0.93,
+    },
+    contextWindow: 1000000,  // 1M context (assumed)
+    costPer1kInput: 0.002,   // $2.00/1M = $0.002/1K (≤200K)
+    costPer1kOutput: 0.012,  // $12.00/1M = $0.012/1K
+    avgLatencyMs: 3000,
+    rateLimit: 60,
+    available: true,
+    lastUsed: 0,
+    totalCalls: 0,
+    successRate: 1.0,
+  },
+  
+  // Gemini 3 Flash Preview - fast and efficient
+  {
+    id: "gemini-3-flash",
+    name: "Gemini 3 Flash",
+    provider: "google",
+    modelId: "gemini-3.0-flash-preview",
+    tier: "standard",
+    capabilities: ["code_generation", "quick_answer", "data_analysis", "summarization"],
+    strengthScores: {
+      code_generation: 0.90,
+      code_review: 0.87,
+      code_refactor: 0.85,
+      debugging: 0.85,
+      reasoning: 0.88,
+      math: 0.90,
+      creative: 0.85,
+      summarization: 0.89,
+      translation: 0.91,
+      data_analysis: 0.90,
+      quick_answer: 0.93,
+      conversation: 0.88,
+      planning: 0.86,
+      documentation: 0.88,
+    },
+    contextWindow: 1000000,  // 1M context
+    costPer1kInput: 0.0005,  // $0.50/1M = $0.0005/1K
+    costPer1kOutput: 0.003,  // $3.00/1M = $0.003/1K
+    avgLatencyMs: 700,
+    rateLimit: 200,
+    available: true,
+    lastUsed: 0,
+    totalCalls: 0,
+    successRate: 1.0,
+  },
+  
+  // Gemini 2.5 Pro - excellent reasoning at lower cost
   {
     id: "gemini-2.5-pro",
     name: "Gemini 2.5 Pro",
     provider: "google",
     modelId: "gemini-2.5-pro",
-    tier: "flagship",
+    tier: "premium",
     capabilities: ["code_generation", "reasoning", "data_analysis", "creative", "planning"],
     strengthScores: {
       code_generation: 0.95,
@@ -584,9 +657,9 @@ const DEFAULT_EXPERTS: Expert[] = [
       planning: 0.92,
       documentation: 0.91,
     },
-    contextWindow: 2000000,  // 2M context!
-    costPer1kInput: 0.00125,
-    costPer1kOutput: 0.005,
+    contextWindow: 1000000,  // 1M+ context
+    costPer1kInput: 0.00125, // $1.25/1M = $0.00125/1K (≤200K)
+    costPer1kOutput: 0.01,   // $10.00/1M = $0.01/1K
     avgLatencyMs: 2500,
     rateLimit: 100,
     available: true,
@@ -594,12 +667,14 @@ const DEFAULT_EXPERTS: Expert[] = [
     totalCalls: 0,
     successRate: 1.0,
   },
+  
+  // Gemini 2.5 Flash - balanced speed and quality
   {
     id: "gemini-2.5-flash",
     name: "Gemini 2.5 Flash",
     provider: "google",
     modelId: "gemini-2.5-flash",
-    tier: "economy",
+    tier: "standard",
     capabilities: ["code_generation", "quick_answer", "data_analysis", "summarization"],
     strengthScores: {
       code_generation: 0.88,
@@ -618,10 +693,45 @@ const DEFAULT_EXPERTS: Expert[] = [
       documentation: 0.86,
     },
     contextWindow: 1000000,  // 1M context
-    costPer1kInput: 0.000075,
-    costPer1kOutput: 0.0003,
+    costPer1kInput: 0.0003,  // $0.30/1M = $0.0003/1K
+    costPer1kOutput: 0.0025, // $2.50/1M = $0.0025/1K
     avgLatencyMs: 500,
     rateLimit: 300,
+    available: true,
+    lastUsed: 0,
+    totalCalls: 0,
+    successRate: 1.0,
+  },
+  
+  // Gemini 2.5 Flash Lite - ultra-cheap for simple tasks
+  {
+    id: "gemini-2.5-flash-lite",
+    name: "Gemini 2.5 Flash Lite",
+    provider: "google",
+    modelId: "gemini-2.5-flash-lite",
+    tier: "economy",
+    capabilities: ["quick_answer", "summarization", "conversation"],
+    strengthScores: {
+      code_generation: 0.80,
+      code_review: 0.78,
+      code_refactor: 0.75,
+      debugging: 0.75,
+      reasoning: 0.78,
+      math: 0.80,
+      creative: 0.75,
+      summarization: 0.82,
+      translation: 0.85,
+      data_analysis: 0.80,
+      quick_answer: 0.88,
+      conversation: 0.82,
+      planning: 0.76,
+      documentation: 0.80,
+    },
+    contextWindow: 1000000,  // 1M context
+    costPer1kInput: 0.0001,  // $0.10/1M = $0.0001/1K
+    costPer1kOutput: 0.0004, // $0.40/1M = $0.0004/1K
+    avgLatencyMs: 300,
+    rateLimit: 500,
     available: true,
     lastUsed: 0,
     totalCalls: 0,
