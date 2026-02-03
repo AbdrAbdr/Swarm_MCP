@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { 
   Brain,
   Zap,
@@ -13,11 +13,17 @@ import {
   AlertTriangle,
   CheckCircle,
   XCircle,
-  Activity
+  Activity,
+  RefreshCw,
+  DollarSign,
+  Cpu,
+  BarChart3
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
 // ============ TYPES ============
@@ -98,21 +104,112 @@ interface MoEStats {
     provider: string
     calls: number
     successRate: number
+    tier: string
+    totalCost: number
   }>
+  byProvider: Record<string, { calls: number; cost: number }>
 }
 
-// ============ API HOOKS ============
+// ============ CONFIG ============
 
+const REFRESH_INTERVAL = 30000 // 30 seconds
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3334"
 
-async function fetchData<T>(endpoint: string): Promise<T | null> {
-  try {
-    const res = await fetch(`${API_BASE}${endpoint}`)
-    if (!res.ok) return null
-    return res.json()
-  } catch {
-    return null
-  }
+// ============ HOOKS ============
+
+function useAutoRefresh<T>(endpoint: string, interval = REFRESH_INTERVAL) {
+  const [data, setData] = useState<T | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
+
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}${endpoint}`)
+      if (!res.ok) throw new Error("Failed to fetch")
+      const json = await res.json()
+      setData(json)
+      setError(null)
+      setLastUpdate(new Date())
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error")
+    } finally {
+      setLoading(false)
+    }
+  }, [endpoint])
+
+  useEffect(() => {
+    fetchData()
+    const timer = setInterval(fetchData, interval)
+    return () => clearInterval(timer)
+  }, [fetchData, interval])
+
+  return { data, loading, error, lastUpdate, refresh: fetchData }
+}
+
+// ============ MINI COMPONENTS ============
+
+function LiveIndicator({ active = true }: { active?: boolean }) {
+  if (!active) return null
+  return (
+    <span className="relative flex h-2 w-2">
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+    </span>
+  )
+}
+
+function MiniSparkline({ values, color = "blue" }: { values: number[]; color?: string }) {
+  if (values.length < 2) return null
+  const max = Math.max(...values)
+  const min = Math.min(...values)
+  const range = max - min || 1
+  
+  return (
+    <div className="flex items-end gap-[1px] h-4">
+      {values.slice(-10).map((v, i) => (
+        <div 
+          key={i}
+          className={cn(
+            "w-1 rounded-sm transition-all",
+            color === "blue" && "bg-blue-500",
+            color === "green" && "bg-green-500",
+            color === "yellow" && "bg-yellow-500",
+            color === "red" && "bg-red-500"
+          )}
+          style={{ height: `${((v - min) / range) * 100}%`, minHeight: "2px" }}
+        />
+      ))}
+    </div>
+  )
+}
+
+function RefreshButton({ onRefresh, loading }: { onRefresh: () => void; loading?: boolean }) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6"
+            onClick={onRefresh}
+            disabled={loading}
+          >
+            <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Refresh</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+function LastUpdate({ date }: { date: Date | null }) {
+  if (!date) return null
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
+  const text = seconds < 60 ? `${seconds}s ago` : `${Math.floor(seconds / 60)}m ago`
+  return <span className="text-[10px] text-muted-foreground">{text}</span>
 }
 
 // ============ WIDGETS ============
@@ -121,15 +218,7 @@ async function fetchData<T>(endpoint: string): Promise<T | null> {
  * SONA Widget - Self-Optimizing Neural Architecture
  */
 export function SONAWidget() {
-  const [data, setData] = useState<SONAStats | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetchData<SONAStats>("/api/sona").then(d => {
-      setData(d)
-      setLoading(false)
-    })
-  }, [])
+  const { data, loading, refresh, lastUpdate } = useAutoRefresh<SONAStats>("/api/sona")
 
   if (loading) {
     return <WidgetSkeleton title="SONA Router" />
@@ -151,9 +240,15 @@ export function SONAWidget() {
         <CardTitle className="text-sm flex items-center gap-2">
           <Brain className="w-4 h-4 text-purple-500" />
           SONA Router
-          {data.enabled && <Badge variant="success" className="ml-auto">Active</Badge>}
+          <div className="flex items-center gap-1 ml-auto">
+            {data.enabled && <LiveIndicator />}
+            <RefreshButton onRefresh={refresh} />
+          </div>
         </CardTitle>
-        <CardDescription>Self-learning task routing</CardDescription>
+        <CardDescription className="flex items-center justify-between">
+          <span>Self-learning task routing</span>
+          <LastUpdate date={lastUpdate} />
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid grid-cols-2 gap-4">
@@ -175,12 +270,22 @@ export function SONAWidget() {
           <Progress value={data.avgQuality * 100} className="h-2" />
         </div>
 
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Cpu className="w-3 h-3" />
+          <span>{data.agents} agents • {(data.explorationRate * 100).toFixed(0)}% exploration</span>
+        </div>
+
         {data.topAgents.length > 0 && (
           <div className="space-y-1">
             <div className="text-xs text-muted-foreground">Top Agents</div>
             {data.topAgents.slice(0, 3).map((agent, i) => (
               <div key={i} className="flex items-center justify-between text-xs">
-                <span className="truncate">{agent.name}</span>
+                <span className="truncate flex items-center gap-1">
+                  {i === 0 && <span className="text-yellow-500">🥇</span>}
+                  {i === 1 && <span className="text-gray-400">🥈</span>}
+                  {i === 2 && <span className="text-amber-600">🥉</span>}
+                  {agent.name}
+                </span>
                 <Badge variant="outline">{agent.tasks} tasks</Badge>
               </div>
             ))}
@@ -195,15 +300,7 @@ export function SONAWidget() {
  * Agent Booster Widget - Fast Local Execution
  */
 export function BoosterWidget() {
-  const [data, setData] = useState<BoosterStats | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetchData<BoosterStats>("/api/booster").then(d => {
-      setData(d)
-      setLoading(false)
-    })
-  }, [])
+  const { data, loading, refresh, lastUpdate } = useAutoRefresh<BoosterStats>("/api/booster")
 
   if (loading) {
     return <WidgetSkeleton title="Agent Booster" />
@@ -225,9 +322,15 @@ export function BoosterWidget() {
         <CardTitle className="text-sm flex items-center gap-2">
           <Zap className="w-4 h-4 text-yellow-500" />
           Agent Booster
-          {data.enabled && <Badge variant="success" className="ml-auto">Active</Badge>}
+          <div className="flex items-center gap-1 ml-auto">
+            {data.enabled && <LiveIndicator />}
+            <RefreshButton onRefresh={refresh} />
+          </div>
         </CardTitle>
-        <CardDescription>Fast local execution</CardDescription>
+        <CardDescription className="flex items-center justify-between">
+          <span>Fast local execution</span>
+          <LastUpdate date={lastUpdate} />
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid grid-cols-3 gap-2 text-center">
@@ -245,9 +348,12 @@ export function BoosterWidget() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-sm">
-          <Clock className="w-4 h-4 text-muted-foreground" />
-          <span>{data.timeSavedMinutes} мин сэкономлено</span>
+        <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-muted-foreground" />
+            <span>{data.timeSavedMinutes} мин сэкономлено</span>
+          </div>
+          <Badge variant="secondary" className="text-xs">352x faster</Badge>
         </div>
 
         {data.recentHistory.length > 0 && (
@@ -274,15 +380,7 @@ export function BoosterWidget() {
  * HNSW Vector Widget - Semantic Search
  */
 export function VectorWidget() {
-  const [data, setData] = useState<VectorStats | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetchData<VectorStats>("/api/vector").then(d => {
-      setData(d)
-      setLoading(false)
-    })
-  }, [])
+  const { data, loading, refresh, lastUpdate } = useAutoRefresh<VectorStats>("/api/vector")
 
   if (loading) {
     return <WidgetSkeleton title="Vector Search" />
@@ -304,9 +402,15 @@ export function VectorWidget() {
         <CardTitle className="text-sm flex items-center gap-2">
           <Search className="w-4 h-4 text-blue-500" />
           HNSW Vector Search
-          <Badge variant="outline" className="ml-auto">{data.distanceMetric}</Badge>
+          <div className="flex items-center gap-1 ml-auto">
+            <Badge variant="outline">{data.distanceMetric}</Badge>
+            <RefreshButton onRefresh={refresh} />
+          </div>
         </CardTitle>
-        <CardDescription>Semantic memory search</CardDescription>
+        <CardDescription className="flex items-center justify-between">
+          <span>Semantic memory search</span>
+          <LastUpdate date={lastUpdate} />
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid grid-cols-2 gap-4 text-center">
@@ -320,18 +424,18 @@ export function VectorWidget() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Levels:</span>
-            <span>{data.maxLevel}</span>
+        <div className="grid grid-cols-3 gap-2 text-xs">
+          <div className="flex flex-col items-center p-2 bg-muted/30 rounded">
+            <span className="font-bold">{data.maxLevel}</span>
+            <span className="text-muted-foreground">Levels</span>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Avg Conn:</span>
-            <span>{data.avgConnections}</span>
+          <div className="flex flex-col items-center p-2 bg-muted/30 rounded">
+            <span className="font-bold">{data.avgConnections}</span>
+            <span className="text-muted-foreground">Avg Conn</span>
           </div>
-          <div className="flex items-center justify-between col-span-2">
-            <span className="text-muted-foreground">Memory:</span>
-            <span>{data.memoryKB} KB</span>
+          <div className="flex flex-col items-center p-2 bg-muted/30 rounded">
+            <span className="font-bold">{data.memoryKB} KB</span>
+            <span className="text-muted-foreground">Memory</span>
           </div>
         </div>
       </CardContent>
@@ -343,15 +447,7 @@ export function VectorWidget() {
  * AIDefence Widget - Security & Threat Detection
  */
 export function DefenceWidget() {
-  const [data, setData] = useState<DefenceStats | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetchData<DefenceStats>("/api/defence").then(d => {
-      setData(d)
-      setLoading(false)
-    })
-  }, [])
+  const { data, loading, refresh, lastUpdate } = useAutoRefresh<DefenceStats>("/api/defence")
 
   if (loading) {
     return <WidgetSkeleton title="AIDefence" />
@@ -386,15 +482,21 @@ export function DefenceWidget() {
             "text-green-500"
           )} />
           AIDefence
-          <Badge variant={
-            threatLevel === "high" ? "destructive" :
-            threatLevel === "medium" ? "warning" :
-            "success"
-          } className="ml-auto">
-            {data.sensitivity}
-          </Badge>
+          <div className="flex items-center gap-1 ml-auto">
+            <Badge variant={
+              threatLevel === "high" ? "destructive" :
+              threatLevel === "medium" ? "warning" :
+              "success"
+            }>
+              {data.sensitivity}
+            </Badge>
+            <RefreshButton onRefresh={refresh} />
+          </div>
         </CardTitle>
-        <CardDescription>Security & threat detection</CardDescription>
+        <CardDescription className="flex items-center justify-between">
+          <span>Security & threat detection</span>
+          <LastUpdate date={lastUpdate} />
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid grid-cols-3 gap-2 text-center">
@@ -413,7 +515,7 @@ export function DefenceWidget() {
         </div>
 
         {data.quarantineActive > 0 && (
-          <div className="flex items-center gap-2 text-sm text-yellow-500">
+          <div className="flex items-center gap-2 text-sm text-yellow-500 bg-yellow-500/10 p-2 rounded">
             <AlertTriangle className="w-4 h-4" />
             <span>{data.quarantineActive} в карантине</span>
           </div>
@@ -445,15 +547,7 @@ export function DefenceWidget() {
  * Consensus Widget - Distributed Agreement
  */
 export function ConsensusWidget() {
-  const [data, setData] = useState<ConsensusStats | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetchData<ConsensusStats>("/api/consensus").then(d => {
-      setData(d)
-      setLoading(false)
-    })
-  }, [])
+  const { data, loading, refresh, lastUpdate } = useAutoRefresh<ConsensusStats>("/api/consensus")
 
   if (loading) {
     return <WidgetSkeleton title="Consensus" />
@@ -478,11 +572,18 @@ export function ConsensusWidget() {
         <CardTitle className="text-sm flex items-center gap-2">
           <Users2 className="w-4 h-4 text-indigo-500" />
           Consensus
-          <Badge variant={data.hasQuorum ? "success" : "destructive"} className="ml-auto">
-            {data.mode}
-          </Badge>
+          <div className="flex items-center gap-1 ml-auto">
+            {data.hasQuorum && <LiveIndicator />}
+            <Badge variant={data.hasQuorum ? "success" : "destructive"}>
+              {data.mode}
+            </Badge>
+            <RefreshButton onRefresh={refresh} />
+          </div>
         </CardTitle>
-        <CardDescription>Distributed agreement</CardDescription>
+        <CardDescription className="flex items-center justify-between">
+          <span>Distributed agreement</span>
+          <LastUpdate date={lastUpdate} />
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid grid-cols-2 gap-4">
@@ -497,29 +598,29 @@ export function ConsensusWidget() {
         </div>
 
         {data.leaderName && (
-          <div className="flex items-center gap-2 text-sm">
-            <Activity className="w-4 h-4 text-primary" />
-            <span>Leader: {data.leaderName}</span>
+          <div className="flex items-center gap-2 text-sm bg-indigo-500/10 p-2 rounded">
+            <Activity className="w-4 h-4 text-indigo-500" />
+            <span>Leader: <strong>{data.leaderName}</strong></span>
           </div>
         )}
 
         <div className="grid grid-cols-3 gap-2 text-center text-xs">
-          <div>
+          <div className="p-2 bg-yellow-500/10 rounded">
             <div className="font-bold text-yellow-500">{data.pendingProposals}</div>
             <div className="text-muted-foreground">Pending</div>
           </div>
-          <div>
+          <div className="p-2 bg-green-500/10 rounded">
             <div className="font-bold text-green-500">{data.approvedProposals}</div>
             <div className="text-muted-foreground">Approved</div>
           </div>
-          <div>
+          <div className="p-2 bg-red-500/10 rounded">
             <div className="font-bold text-red-500">{data.rejectedProposals}</div>
             <div className="text-muted-foreground">Rejected</div>
           </div>
         </div>
 
         {!data.hasQuorum && (
-          <div className="flex items-center gap-2 text-sm text-red-500">
+          <div className="flex items-center gap-2 text-sm text-red-500 bg-red-500/10 p-2 rounded">
             <AlertTriangle className="w-4 h-4" />
             <span>Quorum not reached!</span>
           </div>
@@ -530,18 +631,11 @@ export function ConsensusWidget() {
 }
 
 /**
- * MoE Router Widget - Mixture of Experts
+ * MoE Router Widget - Mixture of Experts (Enhanced)
  */
 export function MoEWidget() {
-  const [data, setData] = useState<MoEStats | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetchData<MoEStats>("/api/moe").then(d => {
-      setData(d)
-      setLoading(false)
-    })
-  }, [])
+  const { data, loading, refresh, lastUpdate } = useAutoRefresh<MoEStats>("/api/moe")
+  const [showCosts, setShowCosts] = useState(false)
 
   if (loading) {
     return <WidgetSkeleton title="MoE Router" />
@@ -557,15 +651,28 @@ export function MoEWidget() {
     )
   }
 
+  // Provider colors
+  const providerColors: Record<string, string> = {
+    anthropic: "text-purple-500",
+    openai: "text-green-500",
+    google: "text-blue-500"
+  }
+
   return (
     <Card className="border-pink-500/30 hover:border-pink-500/50 transition-all">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-pink-500" />
           MoE Router
-          {data.enabled && <Badge variant="success" className="ml-auto">Active</Badge>}
+          <div className="flex items-center gap-1 ml-auto">
+            {data.enabled && <LiveIndicator />}
+            <RefreshButton onRefresh={refresh} />
+          </div>
         </CardTitle>
-        <CardDescription>Intelligent model selection</CardDescription>
+        <CardDescription className="flex items-center justify-between">
+          <span>Intelligent model selection</span>
+          <LastUpdate date={lastUpdate} />
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid grid-cols-3 gap-2 text-center">
@@ -577,25 +684,61 @@ export function MoEWidget() {
             <div className="text-xl font-bold text-green-500">{data.successRate}%</div>
             <div className="text-xs text-muted-foreground">Success</div>
           </div>
-          <div>
+          <div 
+            className="cursor-pointer hover:bg-muted/30 rounded transition-colors"
+            onClick={() => setShowCosts(!showCosts)}
+          >
             <div className="text-xl font-bold text-blue-500">{data.totalCost}</div>
-            <div className="text-xs text-muted-foreground">Cost</div>
+            <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+              <DollarSign className="w-3 h-3" />
+              Cost
+            </div>
           </div>
         </div>
+
+        {/* Cost breakdown by provider (toggleable) */}
+        {showCosts && data.byProvider && (
+          <div className="space-y-1 p-2 bg-muted/20 rounded text-xs">
+            <div className="font-medium mb-1">Cost by Provider</div>
+            {Object.entries(data.byProvider).map(([provider, stats]) => (
+              <div key={provider} className="flex items-center justify-between">
+                <span className={cn("capitalize", providerColors[provider])}>
+                  {provider}
+                </span>
+                <span>${stats.cost.toFixed(4)} ({stats.calls} calls)</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="flex items-center gap-2 text-sm">
           <TrendingUp className="w-4 h-4 text-muted-foreground" />
           <span>{data.avgLatencyMs}ms avg latency</span>
+          <Badge variant="secondary" className="ml-auto text-xs">
+            {data.expertCount} experts
+          </Badge>
         </div>
 
         {data.topExperts.length > 0 && (
           <div className="space-y-1">
-            <div className="text-xs text-muted-foreground">Top Experts ({data.expertCount} total)</div>
-            {data.topExperts.slice(0, 3).map((e, i) => (
+            <div className="text-xs text-muted-foreground flex items-center gap-1">
+              <BarChart3 className="w-3 h-3" />
+              Top Experts
+            </div>
+            {data.topExperts.slice(0, 4).map((e, i) => (
               <div key={i} className="flex items-center justify-between text-xs">
-                <span className="truncate">{e.name}</span>
+                <span className="truncate flex items-center gap-1">
+                  <span className={cn("w-2 h-2 rounded-full", 
+                    e.provider === "anthropic" ? "bg-purple-500" :
+                    e.provider === "openai" ? "bg-green-500" :
+                    "bg-blue-500"
+                  )} />
+                  {e.name}
+                </span>
                 <div className="flex items-center gap-1">
-                  <Badge variant="outline" className="text-[10px] px-1">{e.provider}</Badge>
+                  <Badge variant="outline" className="text-[10px] px-1">
+                    {e.tier}
+                  </Badge>
                   <span className="text-muted-foreground">{e.calls}</span>
                 </div>
               </div>
