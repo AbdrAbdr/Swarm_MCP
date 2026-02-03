@@ -336,7 +336,7 @@
     - Автоматический роутинг на лучшую модель
     - Оптимизация cost/performance/quality
     - Обучение на обратной связи
-    - 10 встроенных экспертов (проверенные цены: февраль 2026)
+    - 16 встроенных экспертов (проверенные цены: февраль 2026)
     
     **Встроенные эксперты (официальные цены):**
     
@@ -350,9 +350,13 @@
     | OpenAI | GPT-5 Mini | standard | $0.25 | $2 | 128K |
     | OpenAI | GPT-4.1 | premium | $3 | $12 | 128K |
     | OpenAI | GPT-4.1 Mini | standard | $0.80 | $3.20 | 128K |
+    | OpenAI | GPT-4.1 Nano | economy | $0.20 | $0.80 | 128K |
     | OpenAI | o4-mini | reasoning | $4 | $16 | 128K |
-    | Google | Gemini 2.5 Pro | flagship | $1.25 | $5 | **2M** |
-    | Google | Gemini 2.5 Flash | economy | $0.075 | $0.30 | **1M** |
+    | Google | Gemini 3 Pro | flagship | $2 | $12 | **1M** |
+    | Google | Gemini 3 Flash | standard | $0.50 | $3 | **1M** |
+    | Google | Gemini 2.5 Pro | premium | $1.25 | $10 | **1M** |
+    | Google | Gemini 2.5 Flash | standard | $0.30 | $2.50 | **1M** |
+    | Google | Gemini 2.5 Flash Lite | economy | $0.10 | $0.40 | **1M** |
     
     **Пример использования:**
     ```typescript

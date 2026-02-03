@@ -24,7 +24,7 @@
   - 4 model tiers: economy, standard, premium, flagship
   - 6 providers: anthropic, openai, google, mistral, local, custom
 
-- **Built-in Experts (11 models, verified pricing February 2026)**
+- **Built-in Experts (16 models, verified pricing February 2026)**
   - **Anthropic Claude 4.5 Series:**
     - Claude Opus 4.5 (flagship, 200K, $5/$25 MTok)
     - Claude Sonnet 4.5 (premium, 200K, $3/$15 MTok)
@@ -38,9 +38,13 @@
     - GPT-4.1 Nano (economy, 128K, $0.20/$0.80 MTok)
   - **OpenAI Reasoning Models:**
     - o4-mini (reasoning, 128K, $4/$16 MTok)
+  - **Google Gemini 3.x Series:**
+    - Gemini 3 Pro (flagship, 1M, $2/$12 MTok)
+    - Gemini 3 Flash (standard, 1M, $0.50/$3 MTok)
   - **Google Gemini 2.5 Series:**
-    - Gemini 2.5 Pro (flagship, 2M context!)
-    - Gemini 2.5 Flash (economy, 1M context)
+    - Gemini 2.5 Pro (premium, 1M, $1.25/$10 MTok)
+    - Gemini 2.5 Flash (standard, 1M, $0.30/$2.50 MTok)
+    - Gemini 2.5 Flash Lite (economy, 1M, $0.10/$0.40 MTok)
 
 - **Routing Factors**
   - Task match score (category-specific strength)
