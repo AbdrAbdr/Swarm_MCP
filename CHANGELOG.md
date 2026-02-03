@@ -7,6 +7,52 @@
 
 ---
 
+## [0.9.4] - 2026-02-03
+
+### 📱 Telegram Bot Integration
+
+#### Added
+
+- **Telegram Bot** (`src/integrations/telegram.ts`)
+  - Full-featured Telegram bot for notifications and control
+  - Event notifications: task created/completed/failed, agent joined/died, CI errors
+  - Commands: `/status`, `/agents`, `/tasks`, `/create_task`, `/stop`, `/resume`, `/config`
+  - Interactive inline buttons for quick actions
+  - Priority setting via buttons (Critical, High, Medium)
+  - Approve/Reject/Comment on reviews via Telegram
+  - Vote on architecture decisions via Telegram
+  
+- **Smart Tool #47: `swarm_telegram`**
+  - Actions: `setup`, `config`, `enable`, `disable`, `send`
+  - Notifications: `notify_task_created`, `notify_task_completed`, `notify_task_failed`, `notify_agent_joined`, `notify_agent_died`
+  - Bot control: `start_polling`, `stop_polling`, `command`
+  
+- **Dashboard API Endpoint** (`/api/telegram`)
+  - Get Telegram configuration status
+  - Setup instructions if not configured
+
+#### Setup
+
+1. Create a bot via @BotFather in Telegram
+2. Set `TELEGRAM_BOT_TOKEN` environment variable
+3. Get your chat ID (send /start to @userinfobot)
+4. Configure via `swarm_telegram({ action: "setup", chatId: "YOUR_CHAT_ID" })`
+
+#### Example Usage
+
+```typescript
+// Setup
+swarm_telegram({ action: "setup", repoPath, chatId: "123456789", enabled: true })
+
+// Send notification
+swarm_telegram({ action: "notify_task_created", repoPath, taskId: "task-1", title: "Fix bug", priority: "high" })
+
+// Start bot polling (for receiving commands)
+swarm_telegram({ action: "start_polling", repoPath })
+```
+
+---
+
 ## [0.9.3] - 2026-02-03
 
 ### 🧠 Smart Features & Cost Optimization

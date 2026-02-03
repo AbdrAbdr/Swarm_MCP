@@ -404,6 +404,51 @@ async function getSyncStatus(repoPath: string) {
   };
 }
 
+// Get Telegram config
+async function getTelegramConfig(repoPath: string) {
+  const configPath = path.join(repoPath, ".swarm", "telegram.json");
+  
+  const config = await readJson<{
+    enabled: boolean;
+    chatId: string;
+    notifyOn: {
+      taskCreated: boolean;
+      taskCompleted: boolean;
+      taskFailed: boolean;
+      agentJoined: boolean;
+      agentDied: boolean;
+      ciError: boolean;
+      reviewRequested: boolean;
+      votingStarted: boolean;
+    };
+  }>(configPath);
+  
+  const hasToken = !!process.env.TELEGRAM_BOT_TOKEN;
+  
+  return {
+    enabled: config?.enabled || false,
+    configured: hasToken && !!config?.chatId,
+    hasToken,
+    hasChatId: !!config?.chatId,
+    notifyOn: config?.notifyOn || {
+      taskCreated: true,
+      taskCompleted: true,
+      taskFailed: true,
+      agentJoined: true,
+      agentDied: true,
+      ciError: true,
+      reviewRequested: true,
+      votingStarted: true,
+    },
+    setupInstructions: !hasToken ? {
+      step1: "Create a bot via @BotFather in Telegram",
+      step2: "Set TELEGRAM_BOT_TOKEN environment variable",
+      step3: "Get your chat ID (send /start to @userinfobot)",
+      step4: "Configure chatId in .swarm/telegram.json or via swarm_telegram tool",
+    } : null,
+  };
+}
+
 // Request handler
 async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
   // Handle CORS preflight
@@ -454,6 +499,9 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
       case "/api/sync":
         data = await getSyncStatus(repoPath);
         break;
+      case "/api/telegram":
+        data = await getTelegramConfig(repoPath);
+        break;
       case "/api/health":
         data = { status: "ok", timestamp: Date.now() };
         break;
@@ -478,7 +526,7 @@ const server = http.createServer(handleRequest);
 server.listen(PORT, () => {
   console.log(`
 ╔════════════════════════════════════════════════════════╗
-║         MCP Swarm Dashboard API Server v0.9.3          ║
+║         MCP Swarm Dashboard API Server v0.9.4          ║
 ╠════════════════════════════════════════════════════════╣
 ║  API:       http://localhost:${PORT}                     ║
 ║  Dashboard: http://localhost:3333                      ║
@@ -495,6 +543,7 @@ server.listen(PORT, () => {
 ║    GET /api/reviews      - Auto Review ревью           ║
 ║    GET /api/budget       - Cost бюджет и использование ║
 ║    GET /api/sync         - External Sync статус        ║
+║    GET /api/telegram     - Telegram Bot конфигурация   ║
 ║    GET /api/health       - Проверка работоспособности  ║
 ╚════════════════════════════════════════════════════════╝
   `);
