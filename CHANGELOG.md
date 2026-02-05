@@ -7,6 +7,47 @@
 
 ---
 
+## [0.9.13] - 2026-02-05
+
+### Self-Hosted Infrastructure
+
+**BREAKING CHANGE:** Removed hardcoded public server URLs. Users must now deploy their own Cloudflare Workers.
+
+#### Changed
+
+- **README.md** — Complete rewrite of installation section
+  - Added Cloudflare Free Tier explanation and limits
+  - Step-by-step deployment guide for Hub, MCP Server, Telegram Bot
+  - Explained what YOUR-SUBDOMAIN means
+
+- **wrangler.toml files** — All 3 Workers now have placeholders
+  - `cloudflare/hub/wrangler.toml` — Added deployment instructions
+  - `cloudflare/mcp-server/wrangler.toml` — HUB_URL placeholder
+  - `cloudflare/telegram-bot/wrangler.toml` — SWARM_HUB_URL placeholder
+
+- **install.ps1 / install.sh** — Now ask for user's server URLs
+  - No more hardcoded URLs
+  - Instructions for deploying first
+
+- **mcp-swarm-remote** — `--url` is now **required**
+  - Shows helpful error message with deployment link
+  - Added `--help` option
+
+- **Dashboard** — `.env.example` uses placeholder
+  - `useWebSocket.ts` warns if HUB_URL not configured
+
+- **Agent rules** (AGENTS.md, CLAUDE.md, GEMINI.md, AGENT.md)
+  - Updated with YOUR-SUBDOMAIN placeholders
+
+#### Why This Change?
+
+- **Privacy**: Your data stays on your infrastructure
+- **No shared limits**: Full Cloudflare Free Tier for yourself
+- **Customization**: Modify Workers as needed
+- **Transparency**: No hidden public server
+
+---
+
 ## [0.9.12] - 2026-02-05
 
 ### Dashboard Real-time Updates
