@@ -1,4 +1,4 @@
-# 🐝 MCP Swarm v0.9.11 — Универсальная Платформа Координации AI-Агентов
+# 🐝 MCP Swarm v0.9.12 — Универсальная Платформа Координации AI-Агентов
 
 **MCP Swarm** — это глобальная «нервная система» для ваших AI-помощников. Она превращает разрозненных агентов (Claude, Cursor, Windsurf, OpenCode) в слаженную команду, способную работать над огромными проектами без конфликтов и потери контекста.
 
@@ -331,7 +331,7 @@
     // → { status: "approved", votes: 2/2 }
     ```
 
-### 🧠 v0.9.10 — MoE Router (NEW)
+### 🧠 v0.9.10 — MoE Router
 54. **swarm_moe** — Интеллектуальный выбор AI-модели для задачи.
     - Автоматический роутинг на лучшую модель
     - Оптимизация cost/performance/quality
@@ -384,6 +384,58 @@
     swarm_moe({ action: "stats", repoPath })
     // → { totalRequests: 150, successRate: 94%, totalCost: $1.23 }
     ```
+
+### 📊 v0.9.12 — Real-time Dashboard & Enhanced Controls (NEW)
+
+**Dashboard WebSocket Widgets:**
+- **ConnectionStatusWidget** — Live статус подключения к Hub с кнопкой reconnect
+- **ActivityTimelineWidget** — Real-time поток событий Swarm
+- **FileLocksWidget** — Активные блокировки файлов с live updates
+- **CostTrackingWidget** — Использование API и прогресс бюджета
+- **VotingWidget** — Proposals и голосования в реальном времени
+
+**Настройка Dashboard WebSocket:**
+```bash
+# В dashboard/.env
+NEXT_PUBLIC_HUB_URL=wss://mcp-swarm-hub.unilife-ch.workers.dev
+```
+
+**Telegram Code Reviews (NEW):**
+- `/reviews` — Список pending code reviews с inline кнопками approve/reject
+- `/approve [id]` — Одобрить review напрямую из Telegram
+- `/reject [id] [reason]` — Отклонить review с указанием причины
+
+**Пример:**
+```
+Вы: /reviews
+
+Бот: 📋 Pending Code Reviews:
+
+1. 🔵 Review #abc123
+   Files: src/utils.ts, src/index.ts
+   Author: RadiantWolf
+   Created: 2 hours ago
+   
+   [✅ Approve] [❌ Reject]
+
+Вы: /approve abc123
+Бот: ✅ Review abc123 approved!
+```
+
+**Auto-start Companion (NEW):**
+При запуске `mcp-swarm-remote` автоматически проверяет и запускает companion демон:
+```bash
+# Companion запускается автоматически
+npx mcp-swarm-remote --url https://...
+
+# Отключить автозапуск
+npx mcp-swarm-remote --url https://... --no-companion
+```
+
+Companion работает на порту **37373** и обеспечивает:
+- Локальное выполнение файловых операций
+- Bridge между IDE и Hub
+- Health checks на `/health` endpoint
 
 ---
 
@@ -811,6 +863,9 @@ export TELEGRAM_USER_ID="987654321"
 | `/status` | Статус текущего проекта |
 | `/agents` | Список агентов |
 | `/tasks` | Список задач |
+| `/reviews` | Список pending code reviews (v0.9.12) |
+| `/approve [id]` | Одобрить code review (v0.9.12) |
+| `/reject [id] [reason]` | Отклонить code review (v0.9.12) |
 | `/stop` | Остановить Swarm |
 | `/resume` | Возобновить |
 
