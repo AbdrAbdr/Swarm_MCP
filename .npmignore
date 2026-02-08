@@ -1,0 +1,36 @@
+# Source files (dist/ is published)
+src/
+tsconfig.json
+
+# Cloudflare Workers (deploy separately)
+cloudflare/
+
+# Dashboard (deploy separately)
+dashboard/
+
+# Swarm data directory
+swarm/
+
+# Scripts
+scripts/
+
+# GitHub
+.github/
+
+# IDE/Agent rules
+.clinerules
+.cursorrules
+.windsurfrules
+AGENT.md
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+
+# Dev files
+.gitignore
+test-input.txt
+*.draft
+
+# Install scripts (handled by npm)
+install.ps1
+install.sh

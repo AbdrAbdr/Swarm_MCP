@@ -1,4 +1,9 @@
-> 🇷🇺 [Читать на русском](./README.ru.md)
+> 🇷🇺 [Читать на русском](./README.ru.md) | 📋 [Changelog](./CHANGELOG.md)
+
+[![npm version](https://img.shields.io/npm/v/mcp-swarm.svg)](https://www.npmjs.com/package/mcp-swarm)
+[![npm downloads](https://img.shields.io/npm/dm/mcp-swarm.svg)](https://www.npmjs.com/package/mcp-swarm)
+[![license](https://img.shields.io/npm/l/mcp-swarm.svg)](https://github.com/AbdrAbdr/Swarm_MCP/blob/main/LICENSE)
+[![CI](https://github.com/AbdrAbdr/Swarm_MCP/actions/workflows/ci.yml/badge.svg)](https://github.com/AbdrAbdr/Swarm_MCP/actions/workflows/ci.yml)
 
 # 🐝 MCP Swarm v0.9.17 — Universal AI Agent Coordination Platform
 
