@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.18] - 2026-02-08
+
+### 🧠 Интеграция новых AI-моделей
+
+#### Добавлено
+
+- **Claude Opus 4.6** — новый флагман Anthropic в MoE Router
+  - 1M токенов контекст (первый Opus с миллионным контекстом)
+  - Adaptive thinking — модель сама решает когда использовать extended thinking
+  - Context compaction — автоматическое сжатие при приближении к лимиту
+  - 128K output tokens — большие ответы без разбиения
+  - Agent Teams — координация нескольких агентов через tmux
+  - $5/$25 per MTok (≤200K), $10/$37.50 (>200K)
+
+- **GPT-5.3 Codex** — новый флагман OpenAI для агентного кодинга
+  - 256K контекст
+  - Оптимизирован для code_generation, debugging, reasoning
+  - ~$2/$15 per MTok (estimated)
+
+- **Kimi K2.5** — premium модель Moonshot AI
+  - 128K контекст, фокус на code_generation, code_review, debugging
+  - ~$1/$5 per MTok (estimated)
+
+#### Изменено
+
+- `ModelProvider` расширен на `"moonshot"` (Kimi/Moonshot AI)
+- Claude Opus 4.5 понижен с `flagship` → `premium` (заменён Opus 4.6)
+- MoE Router: **19 моделей** (было 16) — 4 Anthropic, 9 OpenAI, 5 Google, 1 Moonshot
+
+---
+
 ## [0.9.17] - 2026-02-08
 
 ### 🏗️ Smart Tools Modularization

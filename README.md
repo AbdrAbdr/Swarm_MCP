@@ -5,9 +5,9 @@
 [![license](https://img.shields.io/npm/l/mcp-swarm.svg)](https://github.com/AbdrAbdr/Swarm_MCP/blob/main/LICENSE)
 [![CI](https://github.com/AbdrAbdr/Swarm_MCP/actions/workflows/ci.yml/badge.svg)](https://github.com/AbdrAbdr/Swarm_MCP/actions/workflows/ci.yml)
 
-# 🐝 MCP Swarm v0.9.17 — Universal AI Agent Coordination Platform
+# 🐝 MCP Swarm v0.9.18 — Universal AI Agent Coordination Platform
 
-> ✅ **v0.9.17 — Architecture Update:** Modular codebase, Cloudflare Workers with `SWARM_AUTH_TOKEN` auth, CI/CD pipeline, legacy cleanup. Update: `npm install -g mcp-swarm@latest`
+> 🧠 **v0.9.18 — New AI Models:** Claude Opus 4.6 (1M context, adaptive thinking), GPT-5.3 Codex, Kimi K2.5. 19 models in MoE Router. Update: `npm install -g mcp-swarm@latest`
 
 **MCP Swarm** is a global "nervous system" for your AI assistants. It turns separate agents (Claude, Cursor, Windsurf, OpenCode) into a coordinated team that can work on massive projects without conflicts or context loss.
 
@@ -393,6 +393,19 @@ Instead of hundreds of small commands, we created **54 intelligent tools**. Each
     swarm_moe({ action: "stats", repoPath })
     // → { totalRequests: 150, successRate: 94%, totalCost: $1.23 }
     ```
+
+### 🧠 v0.9.18 — New AI Model Integrations
+
+**3 New Models in MoE Router (19 total):**
+- **Claude Opus 4.6** — Anthropic flagship, 1M context, adaptive thinking, context compaction, 128K output, agent teams
+- **GPT-5.3 Codex** — OpenAI agentic coding flagship, 256K context
+- **Kimi K2.5** — Moonshot AI code-focused premium model
+
+**Model Tier Adjustments:**
+- Opus 4.5 downgraded from `flagship` → `premium` (Opus 4.6 takes flagship)
+- New `moonshot` provider added to `ModelProvider`
+
+---
 
 ### 🏗️ v0.9.17 — Modular Architecture & Cloudflare Auth
 

@@ -61,11 +61,12 @@ export type TaskCategory =
 /**
  * Model provider
  */
-export type ModelProvider = 
-  | "anthropic" 
-  | "openai" 
-  | "google" 
-  | "mistral" 
+export type ModelProvider =
+  | "anthropic"
+  | "openai"
+  | "google"
+  | "mistral"
+  | "moonshot"
   | "local"
   | "custom";
 
@@ -210,43 +211,81 @@ const DEFAULT_CONFIG: MoEConfig = {
 };
 
 /**
- * Default expert models (Updated: February 2026)
+ * Default expert models (Updated: February 2026 — v0.9.18)
  * 
  * VERIFIED PRICES from official sources:
  * - Anthropic: https://www.anthropic.com/pricing (February 2026)
  * - OpenAI: https://openai.com/api/pricing (February 2026)
  * - Google: Gemini pricing from Vertex AI
+ * - Moonshot AI: https://platform.moonshot.ai (February 2026)
  * 
  * Current AI Model Landscape:
- * - Anthropic: Claude 4.5 series (Opus, Sonnet, Haiku)
- * - OpenAI: GPT-5.x series + o3/o4 reasoning models  
- * - Google: Gemini 2.5 series
+ * - Anthropic: Claude 4.6 Opus (flagship) + Claude 4.5 series (Sonnet, Haiku)
+ * - OpenAI: GPT-5.x series + o3/o4 reasoning models + GPT-5.3 Codex
+ * - Google: Gemini 3.x + Gemini 2.5 series
+ * - Moonshot: Kimi K2.5 (code-focused)
  */
 const DEFAULT_EXPERTS: Expert[] = [
-  // ============ ANTHROPIC (Claude 4.5 Series) ============
+  // ============ ANTHROPIC (Claude 4.6 + 4.5 Series) ============
   // Source: anthropic.com/pricing - February 2026
+
+  // Claude Opus 4.6 — NEW flagship (1M context, adaptive thinking, agent teams)
+  {
+    id: "claude-opus-4.6",
+    name: "Claude Opus 4.6",
+    provider: "anthropic",
+    modelId: "claude-opus-4-6-20260205",
+    tier: "flagship",
+    capabilities: ["code_generation", "code_review", "reasoning", "creative", "planning", "documentation", "debugging", "data_analysis", "math"],
+    strengthScores: {
+      code_generation: 0.99,
+      code_review: 0.99,
+      code_refactor: 0.98,
+      debugging: 0.98,
+      reasoning: 0.99,
+      math: 0.97,
+      creative: 0.97,
+      summarization: 0.97,
+      translation: 0.93,
+      data_analysis: 0.96,
+      quick_answer: 0.90,
+      conversation: 0.97,
+      planning: 0.99,
+      documentation: 0.98,
+    },
+    contextWindow: 1000000,  // 1M context (official)
+    costPer1kInput: 0.005,   // $5/MTok (official, ≤200K; $10/MTok for >200K)
+    costPer1kOutput: 0.025,  // $25/MTok (official; $37.50/MTok for >200K)
+    avgLatencyMs: 4500,
+    rateLimit: 40,
+    available: true,
+    lastUsed: 0,
+    totalCalls: 0,
+    successRate: 1.0,
+  },
+  // Claude Opus 4.5 — downgraded to premium (replaced by Opus 4.6 as flagship)
   {
     id: "claude-opus-4.5",
     name: "Claude Opus 4.5",
     provider: "anthropic",
     modelId: "claude-opus-4-5-20251101",
-    tier: "flagship",
+    tier: "premium",
     capabilities: ["code_generation", "code_review", "reasoning", "creative", "planning", "documentation", "debugging"],
     strengthScores: {
-      code_generation: 0.99,
-      code_review: 0.98,
-      code_refactor: 0.97,
-      debugging: 0.97,
-      reasoning: 0.99,
-      math: 0.95,
-      creative: 0.96,
-      summarization: 0.95,
+      code_generation: 0.97,
+      code_review: 0.96,
+      code_refactor: 0.95,
+      debugging: 0.95,
+      reasoning: 0.97,
+      math: 0.94,
+      creative: 0.95,
+      summarization: 0.94,
       translation: 0.90,
-      data_analysis: 0.94,
+      data_analysis: 0.93,
       quick_answer: 0.88,
-      conversation: 0.96,
-      planning: 0.98,
-      documentation: 0.97,
+      conversation: 0.95,
+      planning: 0.96,
+      documentation: 0.96,
     },
     contextWindow: 200000,
     costPer1kInput: 0.005,   // $5/MTok (official)
@@ -560,9 +599,44 @@ const DEFAULT_EXPERTS: Expert[] = [
     successRate: 1.0,
   },
 
+  // OpenAI GPT-5.3 Codex — NEW agentic coding flagship
+  {
+    id: "gpt-5.3-codex",
+    name: "GPT-5.3 Codex",
+    provider: "openai",
+    modelId: "gpt-5.3-codex",
+    tier: "flagship",
+    capabilities: ["code_generation", "code_review", "code_refactor", "debugging", "reasoning", "planning", "math"],
+    strengthScores: {
+      code_generation: 0.99,
+      code_review: 0.97,
+      code_refactor: 0.96,
+      debugging: 0.97,
+      reasoning: 0.97,
+      math: 0.96,
+      creative: 0.93,
+      summarization: 0.92,
+      translation: 0.93,
+      data_analysis: 0.95,
+      quick_answer: 0.90,
+      conversation: 0.92,
+      planning: 0.96,
+      documentation: 0.94,
+    },
+    contextWindow: 256000,
+    costPer1kInput: 0.002,   // ~$2/MTok (estimated)
+    costPer1kOutput: 0.015,  // ~$15/MTok (estimated)
+    avgLatencyMs: 2500,
+    rateLimit: 60,
+    available: true,
+    lastUsed: 0,
+    totalCalls: 0,
+    successRate: 1.0,
+  },
+
   // ============ GOOGLE (Gemini 3.x and 2.5.x Series) ============
   // Verified: https://cloud.google.com/vertex-ai/generative-ai/pricing (Feb 2026)
-  
+
   // Gemini 3 Pro Preview - flagship reasoning model
   {
     id: "gemini-3-pro",
@@ -597,7 +671,7 @@ const DEFAULT_EXPERTS: Expert[] = [
     totalCalls: 0,
     successRate: 1.0,
   },
-  
+
   // Gemini 3 Flash Preview - fast and efficient
   {
     id: "gemini-3-flash",
@@ -632,7 +706,7 @@ const DEFAULT_EXPERTS: Expert[] = [
     totalCalls: 0,
     successRate: 1.0,
   },
-  
+
   // Gemini 2.5 Pro - excellent reasoning at lower cost
   {
     id: "gemini-2.5-pro",
@@ -667,7 +741,7 @@ const DEFAULT_EXPERTS: Expert[] = [
     totalCalls: 0,
     successRate: 1.0,
   },
-  
+
   // Gemini 2.5 Flash - balanced speed and quality
   {
     id: "gemini-2.5-flash",
@@ -702,7 +776,7 @@ const DEFAULT_EXPERTS: Expert[] = [
     totalCalls: 0,
     successRate: 1.0,
   },
-  
+
   // Gemini 2.5 Flash Lite - ultra-cheap for simple tasks
   {
     id: "gemini-2.5-flash-lite",
@@ -732,6 +806,42 @@ const DEFAULT_EXPERTS: Expert[] = [
     costPer1kOutput: 0.0004, // $0.40/1M = $0.0004/1K
     avgLatencyMs: 300,
     rateLimit: 500,
+    available: true,
+    lastUsed: 0,
+    totalCalls: 0,
+    successRate: 1.0,
+  },
+
+  // ============ MOONSHOT AI (Kimi K2.5) ============
+  // Source: platform.moonshot.ai (Feb 2026)
+  {
+    id: "kimi-k2.5",
+    name: "Kimi K2.5",
+    provider: "moonshot",
+    modelId: "kimi-k2.5",
+    tier: "premium",
+    capabilities: ["code_generation", "code_review", "debugging", "reasoning", "planning"],
+    strengthScores: {
+      code_generation: 0.94,
+      code_review: 0.91,
+      code_refactor: 0.89,
+      debugging: 0.90,
+      reasoning: 0.92,
+      math: 0.88,
+      creative: 0.85,
+      summarization: 0.88,
+      translation: 0.90,
+      data_analysis: 0.88,
+      quick_answer: 0.88,
+      conversation: 0.87,
+      planning: 0.90,
+      documentation: 0.88,
+    },
+    contextWindow: 128000,
+    costPer1kInput: 0.001,   // ~$1/MTok (estimated)
+    costPer1kOutput: 0.005,  // ~$5/MTok (estimated)
+    avgLatencyMs: 1500,
+    rateLimit: 100,
     available: true,
     lastUsed: 0,
     totalCalls: 0,
@@ -777,7 +887,7 @@ function estimateTokens(text: string): number {
  */
 function classifyTask(content: string): TaskCategory {
   const lower = content.toLowerCase();
-  
+
   // Code-related patterns
   if (/\b(write|create|implement|build|generate)\b.*\b(function|class|code|api|component)\b/i.test(content)) {
     return "code_generation";
@@ -791,7 +901,7 @@ function classifyTask(content: string): TaskCategory {
   if (/\b(debug|fix|bug|error|issue|broken)\b/i.test(content)) {
     return "debugging";
   }
-  
+
   // Reasoning patterns
   if (/\b(explain|why|how|reason|logic|think|analyze)\b/i.test(content) && content.length > 200) {
     return "reasoning";
@@ -799,42 +909,42 @@ function classifyTask(content: string): TaskCategory {
   if (/\b(calculate|compute|math|equation|formula|solve)\b/i.test(content)) {
     return "math";
   }
-  
+
   // Creative patterns
   if (/\b(write|create|compose)\b.*\b(story|poem|essay|article|blog)\b/i.test(content)) {
     return "creative";
   }
-  
+
   // Summary patterns
   if (/\b(summarize|summary|tldr|brief|overview)\b/i.test(content)) {
     return "summarization";
   }
-  
+
   // Translation
   if (/\b(translate|translation|convert to)\b.*\b(english|spanish|french|german|chinese|japanese|russian)\b/i.test(content)) {
     return "translation";
   }
-  
+
   // Data analysis
   if (/\b(analyze|data|statistics|trend|pattern|csv|json|dataset)\b/i.test(content)) {
     return "data_analysis";
   }
-  
+
   // Planning
   if (/\b(plan|roadmap|architecture|design|strategy|approach)\b/i.test(content)) {
     return "planning";
   }
-  
+
   // Documentation
   if (/\b(document|documentation|readme|docs|api docs|jsdoc)\b/i.test(content)) {
     return "documentation";
   }
-  
+
   // Quick questions (short content)
   if (content.length < 100 && /\?$/.test(content.trim())) {
     return "quick_answer";
   }
-  
+
   // Default to conversation
   return "conversation";
 }
@@ -846,7 +956,7 @@ function estimateComplexity(content: string): TaskRequest["complexity"] {
   const tokens = estimateTokens(content);
   const hasCodeBlocks = /```[\s\S]*?```/.test(content);
   const hasMultipleParts = content.split(/\d+\./).length > 3;
-  
+
   if (tokens < 50 && !hasCodeBlocks) return "trivial";
   if (tokens < 200 && !hasMultipleParts) return "simple";
   if (tokens < 500) return "medium";
@@ -943,32 +1053,32 @@ function calculateExpertScore(
   config: MoEConfig
 ): number {
   const category = task.category || classifyTask(task.content);
-  
+
   // Task match score (how well expert handles this category)
   const taskMatch = expert.strengthScores[category] || 0.5;
-  
+
   // Cost efficiency (inverse of cost, normalized)
   const estimatedTokens = estimateTokens(task.content);
-  const estimatedCost = (estimatedTokens / 1000) * expert.costPer1kInput + 
-                        (estimatedTokens / 1000) * 0.5 * expert.costPer1kOutput;
+  const estimatedCost = (estimatedTokens / 1000) * expert.costPer1kInput +
+    (estimatedTokens / 1000) * 0.5 * expert.costPer1kOutput;
   const maxCost = 0.1; // $0.10 as reference
   const costEfficiency = 1 - Math.min(estimatedCost / maxCost, 1);
-  
+
   // Performance score (historical success)
   const performanceScore = expert.successRate;
-  
+
   // Load balance (prefer less recently used)
   const now = Date.now();
   const timeSinceUse = now - expert.lastUsed;
   const loadBalance = Math.min(timeSinceUse / 60000, 1); // Max out at 1 minute
-  
+
   // Weighted combination
-  const score = 
+  const score =
     taskMatch * config.qualityWeight +
     costEfficiency * config.costWeight +
     performanceScore * 0.1 +
     loadBalance * config.latencyWeight;
-  
+
   return score;
 }
 
@@ -991,7 +1101,7 @@ export async function route(input: {
   const config = await loadConfig(repoRoot);
   const experts = await loadExperts(repoRoot);
   const stats = await loadStats(repoRoot);
-  
+
   const task: TaskRequest = {
     content: input.content,
     category: input.category || classifyTask(input.content),
@@ -1003,66 +1113,66 @@ export async function route(input: {
     requiredContext: input.requiredContext,
     priority: input.priority || "normal",
   };
-  
+
   // Filter available experts
   let candidates = experts.filter(e => e.available);
-  
+
   // Apply constraints
   if (task.preferredProvider) {
     const providerExperts = candidates.filter(e => e.provider === task.preferredProvider);
     if (providerExperts.length > 0) candidates = providerExperts;
   }
-  
+
   if (task.preferredTier) {
     const tierExperts = candidates.filter(e => e.tier === task.preferredTier);
     if (tierExperts.length > 0) candidates = tierExperts;
   }
-  
+
   if (task.requiredContext) {
     candidates = candidates.filter(e => e.contextWindow >= task.requiredContext!);
   }
-  
+
   if (task.maxLatencyMs) {
     candidates = candidates.filter(e => e.avgLatencyMs <= task.maxLatencyMs!);
   }
-  
+
   // Score all candidates
   const scored = candidates.map(expert => ({
     expert,
     score: calculateExpertScore(expert, task, config),
     taskMatch: expert.strengthScores[task.category!] || 0.5,
   }));
-  
+
   // Sort by score
   scored.sort((a, b) => b.score - a.score);
-  
+
   if (scored.length === 0) {
     throw new Error("No suitable experts available for this task");
   }
-  
+
   const selected = scored[0];
   const alternatives = scored.slice(1, 4).map(s => s.expert);
-  
+
   // Estimate costs
   const inputTokens = estimateTokens(task.content);
   const outputTokens = Math.ceil(inputTokens * 0.5); // Rough estimate
-  const estimatedCost = 
+  const estimatedCost =
     (inputTokens / 1000) * selected.expert.costPer1kInput +
     (outputTokens / 1000) * selected.expert.costPer1kOutput;
-  
+
   // Update stats
   stats.totalRequests++;
   stats.lastUpdated = Date.now();
   await saveStats(repoRoot, stats);
-  
+
   return {
     selectedExpert: selected.expert,
     confidence: selected.score,
     alternatives,
     reasoning: `Selected ${selected.expert.name} for ${task.category} task. ` +
-               `Task match: ${(selected.taskMatch * 100).toFixed(0)}%, ` +
-               `Tier: ${selected.expert.tier}, ` +
-               `Estimated cost: $${estimatedCost.toFixed(4)}`,
+      `Task match: ${(selected.taskMatch * 100).toFixed(0)}%, ` +
+      `Tier: ${selected.expert.tier}, ` +
+      `Estimated cost: $${estimatedCost.toFixed(4)}`,
     estimatedCost,
     estimatedLatency: selected.expert.avgLatencyMs,
     estimatedTokens: {
@@ -1096,29 +1206,29 @@ export async function feedback(input: {
   const config = await loadConfig(repoRoot);
   const stats = await loadStats(repoRoot);
   const history = await loadHistory(repoRoot);
-  
+
   // Find expert
   const expert = experts.find(e => e.id === input.expertId);
   if (!expert) {
     return { success: false, message: "Expert not found" };
   }
-  
+
   // Update expert stats
   expert.lastUsed = Date.now();
   expert.totalCalls++;
-  
+
   // Update success rate with exponential moving average
   if (config.learningEnabled) {
     const newSuccess = input.success ? 1 : 0;
-    expert.successRate = expert.successRate * (1 - config.learningRate) + 
-                         newSuccess * config.learningRate;
+    expert.successRate = expert.successRate * (1 - config.learningRate) +
+      newSuccess * config.learningRate;
   }
-  
+
   // Update latency
   if (input.actualLatencyMs) {
     expert.avgLatencyMs = expert.avgLatencyMs * 0.9 + input.actualLatencyMs * 0.1;
   }
-  
+
   // Add to history
   history.push({
     requestId: input.requestId,
@@ -1141,7 +1251,7 @@ export async function feedback(input: {
       comment: input.comment,
     } : undefined,
   });
-  
+
   // Update global stats
   if (input.success) stats.successfulRoutes++;
   if (input.actualLatencyMs) {
@@ -1150,7 +1260,7 @@ export async function feedback(input: {
   if (input.actualCost) {
     stats.totalCost += input.actualCost;
   }
-  
+
   // Update per-expert stats
   if (!stats.byExpert[expert.id]) {
     stats.byExpert[expert.id] = {
@@ -1162,20 +1272,20 @@ export async function feedback(input: {
   }
   stats.byExpert[expert.id].calls++;
   if (input.actualLatencyMs) {
-    stats.byExpert[expert.id].avgLatency = 
+    stats.byExpert[expert.id].avgLatency =
       stats.byExpert[expert.id].avgLatency * 0.9 + input.actualLatencyMs * 0.1;
   }
   if (input.actualCost) {
     stats.byExpert[expert.id].totalCost += input.actualCost;
   }
   stats.byExpert[expert.id].successRate = expert.successRate;
-  
+
   stats.lastUpdated = Date.now();
-  
+
   await saveExperts(repoRoot, experts);
   await saveStats(repoRoot, stats);
   await saveHistory(repoRoot, history);
-  
+
   return { success: true, message: `Feedback recorded for ${expert.name}` };
 }
 
@@ -1190,7 +1300,7 @@ export async function getExperts(input: {
 }): Promise<Expert[]> {
   const repoRoot = await getRepoRoot(input.repoPath);
   let experts = await loadExperts(repoRoot);
-  
+
   if (input.provider) {
     experts = experts.filter(e => e.provider === input.provider);
   }
@@ -1200,7 +1310,7 @@ export async function getExperts(input: {
   if (input.category) {
     experts = experts.filter(e => e.capabilities.includes(input.category!));
   }
-  
+
   return experts;
 }
 
@@ -1213,9 +1323,9 @@ export async function addExpert(input: {
 }): Promise<{ success: boolean; expert: Expert }> {
   const repoRoot = await getRepoRoot(input.repoPath);
   const experts = await loadExperts(repoRoot);
-  
+
   const existing = experts.find(e => e.id === input.expert.id);
-  
+
   const expert: Expert = {
     id: input.expert.id,
     name: input.expert.name,
@@ -1249,13 +1359,13 @@ export async function addExpert(input: {
     totalCalls: existing?.totalCalls || 0,
     successRate: existing?.successRate || 1.0,
   };
-  
+
   if (existing) {
     Object.assign(existing, expert);
   } else {
     experts.push(expert);
   }
-  
+
   await saveExperts(repoRoot, experts);
   return { success: true, expert };
 }
@@ -1269,15 +1379,15 @@ export async function removeExpert(input: {
 }): Promise<{ success: boolean; message: string }> {
   const repoRoot = await getRepoRoot(input.repoPath);
   const experts = await loadExperts(repoRoot);
-  
+
   const index = experts.findIndex(e => e.id === input.expertId);
   if (index === -1) {
     return { success: false, message: "Expert not found" };
   }
-  
+
   const removed = experts.splice(index, 1)[0];
   await saveExperts(repoRoot, experts);
-  
+
   return { success: true, message: `Removed expert: ${removed.name}` };
 }
 
@@ -1325,11 +1435,11 @@ export async function getHistory(input: {
 }): Promise<RoutingResult[]> {
   const repoRoot = await getRepoRoot(input.repoPath);
   let history = await loadHistory(repoRoot);
-  
+
   if (input.expertId) {
     history = history.filter(h => h.decision.selectedExpert.id === input.expertId);
   }
-  
+
   return history.slice(-(input.limit || 50)).reverse();
 }
 
@@ -1359,7 +1469,7 @@ export async function resetStats(input: {
   expertId?: string;
 }): Promise<{ success: boolean; message: string }> {
   const repoRoot = await getRepoRoot(input.repoPath);
-  
+
   if (input.expertId) {
     const experts = await loadExperts(repoRoot);
     const expert = experts.find(e => e.id === input.expertId);
@@ -1372,7 +1482,7 @@ export async function resetStats(input: {
     await saveExperts(repoRoot, experts);
     return { success: true, message: `Reset stats for ${expert.name}` };
   }
-  
+
   // Reset all
   const stats: MoEStats = {
     totalRequests: 0,
@@ -1385,7 +1495,7 @@ export async function resetStats(input: {
     lastUpdated: Date.now(),
   };
   await saveStats(repoRoot, stats);
-  
+
   return { success: true, message: "All statistics reset" };
 }
 
