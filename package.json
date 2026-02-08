@@ -1,6 +1,6 @@
 {
   "name": "mcp-swarm",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": false,
   "type": "module",
   "description": "Universal AI agent coordination platform with 54+ smart tools, 21 AI models (Kimi K2.5, GPT-5.3, Opus 4.6), EWC++ self-learning, semantic caching, and Q-Learning routing",
@@ -14,9 +14,13 @@
   ],
   "author": "MCP Swarm Team",
   "license": "MIT",
+  "homepage": "https://github.com/AbdrAbdr/MCP-Swarm#readme",
+  "bugs": {
+    "url": "https://github.com/AbdrAbdr/MCP-Swarm/issues"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/AbdrAbdr/Swarm_MCP"
+    "url": "https://github.com/AbdrAbdr/MCP-Swarm.git"
   },
   "bin": {
     "mcp-swarm": "./dist/serverSmart.js",
