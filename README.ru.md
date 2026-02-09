@@ -1,4 +1,4 @@
-> 🇬🇧 [Read in English](./README.md) | 📋 [История изменений](./CHANGELOG.ru.md)
+> <img src="https://flagcdn.com/20x15/gb.png" alt="EN" /> [Read in English](./README.md) | 📋 [История изменений](./CHANGELOG.ru.md)
 
 [![npm version](https://img.shields.io/npm/v/mcp-swarm.svg)](https://www.npmjs.com/package/mcp-swarm)
 [![npm downloads](https://img.shields.io/npm/dm/mcp-swarm.svg)](https://www.npmjs.com/package/mcp-swarm)
@@ -875,6 +875,20 @@ PRs welcome! Основные принципы:
 1. Все tool'ы должны принимать `repoPath`
 2. Состояние сохраняется в файлы (не в память)
 3. Тесты перед мерджем
+
+---
+
+## ⭐ Поддержите проект
+
+Если MCP Swarm помогает вашей команде — **[поставьте звезду на GitHub](https://github.com/AbdrAbdr/MCP-Swarm)!** ⭐
+
+Ваш отзыв формирует будущее проекта:
+
+- 🐛 **Нашли баг?** — [Создайте Issue](https://github.com/AbdrAbdr/MCP-Swarm/issues/new)
+- 💡 **Есть идея?** — [Начните обсуждение](https://github.com/AbdrAbdr/MCP-Swarm/discussions)
+- 🔧 **Хотите помочь?** — [Fork & PR](https://github.com/AbdrAbdr/MCP-Swarm/fork)
+
+[![Star on GitHub](https://img.shields.io/github/stars/AbdrAbdr/MCP-Swarm?style=social)](https://github.com/AbdrAbdr/MCP-Swarm)
 
 ---
 
