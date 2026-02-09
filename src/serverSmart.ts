@@ -1,8 +1,9 @@
 /**
- * MCP Swarm v1.0.0 - Smart Tools Server (Modular)
+ * MCP Swarm v1.1.0 - Smart Tools Server (Modular)
  * 
- * 54 Smart Tools organized into 9 modular categories:
- * core, tasks, files, git, collaboration, security, analytics, intelligence, infra
+ * 26 Consolidated Smart Tools organized into 9 modular categories:
+ * core (2), tasks (2), files (2), git (1), collaboration (4),
+ * security (1), analytics (3), intelligence (4), infra (7)
  * 
  * Usage: node dist/serverSmart.js
  */

@@ -111,15 +111,15 @@ const CORS_HEADERS = {
 export default {
     async fetch(request: Request, env: Env): Promise<Response> {
         const url = new URL(request.url);
-        
+
         // Handle CORS preflight
         if (request.method === "OPTIONS") {
             return new Response(null, { headers: CORS_HEADERS });
         }
-        
+
         // Extract telegram_user_id from query params
         const telegramUserId = url.searchParams.get("telegram_user_id");
-        
+
         // Get session ID from header
         const sessionId = request.headers.get("Mcp-Session-Id");
         const protocolVersion = request.headers.get("MCP-Protocol-Version") || "2025-03-26";
@@ -150,17 +150,17 @@ export default {
             if (request.method === "POST") {
                 return handleMcpPost(request, env, sessionId, telegramUserId, protocolVersion);
             }
-            
+
             // GET - SSE stream for server->client notifications (optional)
             if (request.method === "GET") {
                 // For now, return 405 - we don't need server-initiated messages
                 // This could be implemented later if needed
-                return new Response("Server-initiated SSE not implemented", { 
+                return new Response("Server-initiated SSE not implemented", {
                     status: 405,
                     headers: CORS_HEADERS,
                 });
             }
-            
+
             // DELETE - end session
             if (request.method === "DELETE") {
                 if (sessionId && deleteSession(sessionId)) {
@@ -180,7 +180,7 @@ export default {
                     new: "POST /mcp (single endpoint)",
                 },
                 documentation: "https://modelcontextprotocol.io/docs/concepts/transports",
-            }, { 
+            }, {
                 status: 410, // Gone
                 headers: CORS_HEADERS,
             });
@@ -191,8 +191,8 @@ export default {
             return Response.json({
                 error: "deprecated_transport",
                 message: "Use POST /mcp instead",
-            }, { 
-                status: 301, 
+            }, {
+                status: 301,
                 headers: {
                     ...CORS_HEADERS,
                     "Location": "/mcp",
@@ -215,8 +215,8 @@ export default {
 // ============ STREAMABLE HTTP HANDLER ============
 
 async function handleMcpPost(
-    request: Request, 
-    env: Env, 
+    request: Request,
+    env: Env,
     sessionId: string | null,
     telegramUserId: string | null,
     protocolVersion: string
@@ -249,7 +249,7 @@ async function handleMcpPost(
         // Initialize - create new session
         if (method === "initialize") {
             const session = createSession(telegramUserId, protocolVersion);
-            
+
             const result = {
                 protocolVersion: "2025-03-26",
                 capabilities: {
@@ -260,7 +260,7 @@ async function handleMcpPost(
                     version: "0.9.11",
                 },
             };
-            
+
             return Response.json({
                 jsonrpc: "2.0",
                 id,
@@ -282,7 +282,7 @@ async function handleMcpPost(
         // Note: Cloudflare Workers are stateless, so we can't persist sessions in memory.
         // For now, we'll be lenient and allow requests without session validation.
         // In production, you'd use Durable Objects or KV for session storage.
-        
+
         // Get telegram user from params or query
         const effectiveTelegramUserId = telegramUserId;
 
@@ -306,7 +306,7 @@ async function handleMcpPost(
         if (method === "tools/call") {
             const params = body.params as { name: string; arguments?: Record<string, unknown> };
             const result = await executeToolRemote(params.name, params.arguments || {}, env, effectiveTelegramUserId);
-            
+
             return Response.json({
                 jsonrpc: "2.0",
                 id,
@@ -352,7 +352,7 @@ async function handleMcpPost(
             jsonrpc: "2.0",
             id: null,
             error: { code: -32700, message: "Parse error", data: String(error) },
-        }, { 
+        }, {
             status: 400,
             headers: {
                 ...CORS_HEADERS,
@@ -363,163 +363,158 @@ async function handleMcpPost(
 }
 
 // ============ TOOLS LIST ============
-// All 54 Smart Tools from MCP Swarm v0.9.10
+// All 26 Consolidated Smart Tools from MCP Swarm v1.1.0
 
 function getToolsList() {
     return [
-        // 1. swarm_agent
+        // === Core (2) ===
         {
             name: "swarm_agent",
-            description: "Agent registration and identity. Actions: register, whoami, init",
+            description: "Agent registration, identity & companion control. Actions: register, whoami, init, companion_status, companion_stop, companion_pause, companion_resume",
             inputSchema: {
                 type: "object",
                 properties: {
-                    action: { type: "string", enum: ["register", "whoami", "init"] },
+                    action: { type: "string", enum: ["register", "whoami", "init", "companion_status", "companion_stop", "companion_pause", "companion_resume"] },
                     repoPath: { type: "string" },
                     commitMode: { type: "string", enum: ["none", "local", "push"] },
-                },
-                required: ["action"],
-            },
-        },
-        // 2. swarm_task
-        {
-            name: "swarm_task",
-            description: "Task management. Actions: create, list, update, decompose, get_decomposition",
-            inputSchema: {
-                type: "object",
-                properties: {
-                    action: { type: "string", enum: ["create", "list", "update", "decompose", "get_decomposition"] },
-                    repoPath: { type: "string" },
-                    shortDesc: { type: "string" },
-                    title: { type: "string" },
-                    questions: { type: "array", items: { type: "string" } },
-                    answers: { type: "array", items: { type: "string" } },
-                    notes: { type: "string" },
-                    taskId: { type: "string" },
-                    status: { type: "string", enum: ["open", "in_progress", "needs_review", "done", "canceled"] },
-                    assignee: { type: "string" },
-                    branch: { type: "string" },
-                    links: { type: "array", items: { type: "string" } },
-                    parentTitle: { type: "string" },
-                    subtasks: { type: "array" },
-                    commitMode: { type: "string", enum: ["none", "local", "push"] },
-                },
-                required: ["action"],
-            },
-        },
-        // 3. swarm_file
-        {
-            name: "swarm_file",
-            description: "File locking and conflict management. Actions: reserve, release, list, forecast, conflicts, safety",
-            inputSchema: {
-                type: "object",
-                properties: {
-                    action: { type: "string", enum: ["reserve", "release", "list", "forecast", "conflicts", "safety"] },
-                    repoPath: { type: "string" },
-                    filePath: { type: "string" },
-                    files: { type: "array", items: { type: "string" } },
-                    agent: { type: "string" },
-                    exclusive: { type: "boolean" },
-                    ttlMs: { type: "number" },
-                    taskId: { type: "string" },
-                    estimatedMinutesFromNow: { type: "number" },
-                    confidence: { type: "string", enum: ["low", "medium", "high"] },
-                    excludeAgent: { type: "string" },
-                    commitMode: { type: "string", enum: ["none", "local", "push"] },
-                },
-                required: ["action"],
-            },
-        },
-        // 4. swarm_git
-        {
-            name: "swarm_git",
-            description: "Git operations. Actions: sync, pr, health, cleanup, cleanup_all",
-            inputSchema: {
-                type: "object",
-                properties: {
-                    action: { type: "string", enum: ["sync", "pr", "health", "cleanup", "cleanup_all"] },
-                    repoPath: { type: "string" },
-                    baseBranch: { type: "string" },
-                    title: { type: "string" },
-                    body: { type: "string" },
-                    draft: { type: "boolean" },
-                    branch: { type: "string" },
-                    deleteLocal: { type: "boolean" },
-                    deleteRemote: { type: "boolean" },
-                },
-                required: ["action"],
-            },
-        },
-        // 5. swarm_worktree
-        {
-            name: "swarm_worktree",
-            description: "Git worktree management. Actions: create, list, remove",
-            inputSchema: {
-                type: "object",
-                properties: {
-                    action: { type: "string", enum: ["create", "list", "remove"] },
-                    repoPath: { type: "string" },
-                    agentName: { type: "string" },
-                    shortDesc: { type: "string" },
-                    baseRef: { type: "string" },
-                    push: { type: "boolean" },
-                    worktreePath: { type: "string" },
-                    force: { type: "boolean" },
-                },
-                required: ["action"],
-            },
-        },
-        // 6. swarm_companion
-        {
-            name: "swarm_companion",
-            description: "Companion daemon control. Actions: status, stop, pause, resume",
-            inputSchema: {
-                type: "object",
-                properties: {
-                    action: { type: "string", enum: ["status", "stop", "pause", "resume"] },
                     port: { type: "number" },
                     token: { type: "string" },
                 },
                 required: ["action"],
             },
         },
-        // 7. swarm_control
         {
             name: "swarm_control",
-            description: "Swarm stop/resume control. Actions: stop, resume, status",
+            description: "Swarm stop/resume & real-time agent status. Actions: stop, resume, status, pulse_update, pulse_get",
             inputSchema: {
                 type: "object",
                 properties: {
-                    action: { type: "string", enum: ["stop", "resume", "status"] },
+                    action: { type: "string", enum: ["stop", "resume", "status", "pulse_update", "pulse_get"] },
                     repoPath: { type: "string" },
                     reason: { type: "string" },
                     by: { type: "string" },
+                    agent: { type: "string" },
+                    currentFile: { type: "string" },
+                    currentTask: { type: "string" },
+                    status: { type: "string", enum: ["active", "idle", "paused", "offline"] },
                     commitMode: { type: "string", enum: ["none", "local", "push"] },
                 },
                 required: ["action"],
             },
         },
-        // 8. swarm_chat
+        // === Tasks (2) ===
         {
-            name: "swarm_chat",
-            description: "Team communication. Actions: broadcast, dashboard, thought, thoughts",
+            name: "swarm_task",
+            description: "Task & briefing management. Actions: create, list, update, decompose, get_decomposition, briefing_save, briefing_load",
             inputSchema: {
                 type: "object",
                 properties: {
-                    action: { type: "string", enum: ["broadcast", "dashboard", "thought", "thoughts"] },
+                    action: { type: "string", enum: ["create", "list", "update", "decompose", "get_decomposition", "briefing_save", "briefing_load"] },
                     repoPath: { type: "string" },
-                    message: { type: "string" },
-                    statusLine: { type: "string" },
-                    agent: { type: "string" },
                     taskId: { type: "string" },
-                    context: { type: "string" },
-                    limit: { type: "number" },
+                    title: { type: "string" },
+                    shortDesc: { type: "string" },
+                    status: { type: "string", enum: ["open", "in_progress", "needs_review", "done", "canceled"] },
+                    assignee: { type: "string" },
                     commitMode: { type: "string", enum: ["none", "local", "push"] },
                 },
                 required: ["action"],
             },
         },
-        // 9. swarm_orchestrator
+        {
+            name: "swarm_plan",
+            description: "Implementation planning & spec pipeline. Actions: create, add, next, start, step, complete, prompt, export, status, list, ready, spec_start, spec_phase, spec_complete, spec_get, spec_list, spec_export",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    action: { type: "string" },
+                    repoPath: { type: "string" },
+                    planId: { type: "string" },
+                    taskId: { type: "string" },
+                },
+                required: ["action"],
+            },
+        },
+        // === Files (2) ===
+        {
+            name: "swarm_file",
+            description: "File locking, snapshots & conflict management. Actions: reserve, release, list, forecast, conflicts, safety, snapshot_create, snapshot_rollback, snapshot_list",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    action: { type: "string", enum: ["reserve", "release", "list", "forecast", "conflicts", "safety", "snapshot_create", "snapshot_rollback", "snapshot_list"] },
+                    repoPath: { type: "string" },
+                    filePath: { type: "string" },
+                    files: { type: "array", items: { type: "string" } },
+                    agent: { type: "string" },
+                    exclusive: { type: "boolean" },
+                    ttlMs: { type: "number" },
+                    commitMode: { type: "string", enum: ["none", "local", "push"] },
+                },
+                required: ["action"],
+            },
+        },
+        {
+            name: "swarm_worktree",
+            description: "Git worktree & hooks management. Actions: create, list, remove, hooks_install, hooks_uninstall, hooks_run, hooks_config, hooks_update, hooks_list",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    action: { type: "string" },
+                    repoPath: { type: "string" },
+                    agentName: { type: "string" },
+                    commitMode: { type: "string", enum: ["none", "local", "push"] },
+                },
+                required: ["action"],
+            },
+        },
+        // === Git (1) ===
+        {
+            name: "swarm_git",
+            description: "Git operations & dependency management. Actions: sync, pr, health, cleanup, cleanup_all, dep_signal, dep_sync",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    action: { type: "string", enum: ["sync", "pr", "health", "cleanup", "cleanup_all", "dep_signal", "dep_sync"] },
+                    repoPath: { type: "string" },
+                    title: { type: "string" },
+                    body: { type: "string" },
+                    draft: { type: "boolean" },
+                    branch: { type: "string" },
+                    baseBranch: { type: "string" },
+                },
+                required: ["action"],
+            },
+        },
+        // === Collaboration (4) ===
+        {
+            name: "swarm_chat",
+            description: "Team communication & code review. Actions: broadcast, dashboard, thought, thoughts, review_request, review_respond, review_list",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    action: { type: "string", enum: ["broadcast", "dashboard", "thought", "thoughts", "review_request", "review_respond", "review_list"] },
+                    repoPath: { type: "string" },
+                    message: { type: "string" },
+                    agent: { type: "string" },
+                    commitMode: { type: "string", enum: ["none", "local", "push"] },
+                },
+                required: ["action"],
+            },
+        },
+        {
+            name: "swarm_voting",
+            description: "Voting & task auction system. Actions: start, vote, list, get, auction_announce, auction_bid, auction_poll",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    action: { type: "string", enum: ["start", "vote", "list", "get", "auction_announce", "auction_bid", "auction_poll"] },
+                    repoPath: { type: "string" },
+                    commitMode: { type: "string", enum: ["none", "local", "push"] },
+                },
+                required: ["action"],
+            },
+        },
         {
             name: "swarm_orchestrator",
             description: "Orchestrator election and management. Actions: elect, info, heartbeat, resign, executors, executor_heartbeat",
@@ -531,129 +526,228 @@ function getToolsList() {
                     agentId: { type: "string" },
                     agentName: { type: "string" },
                     platform: { type: "string" },
-                    currentTask: { type: "string" },
                 },
                 required: ["action"],
             },
         },
-        // 10. swarm_pulse
         {
-            name: "swarm_pulse",
-            description: "Real-time agent status. Actions: update, get",
+            name: "swarm_message",
+            description: "Agent messaging & MCP scanner. Actions: send, inbox, ack, reply, search, thread, mcp_scan, mcp_authorize, mcp_policy",
             inputSchema: {
                 type: "object",
                 properties: {
-                    action: { type: "string", enum: ["update", "get"] },
+                    action: { type: "string", enum: ["send", "inbox", "ack", "reply", "search", "thread", "mcp_scan", "mcp_authorize", "mcp_policy"] },
                     repoPath: { type: "string" },
-                    agent: { type: "string" },
-                    currentFile: { type: "string" },
-                    currentTask: { type: "string" },
-                    status: { type: "string", enum: ["active", "idle", "paused", "offline"] },
+                    from: { type: "string" },
+                    to: {},
+                    subject: { type: "string" },
+                    body: { type: "string" },
+                },
+                required: ["action"],
+            },
+        },
+        // === Security (1) ===
+        {
+            name: "swarm_defence",
+            description: "AI security, immune system & consensus. Actions: scan, validate_agent, validate_tool, events, quarantine, release, stats, config, set_config, trust, untrust, clear_events, immune_alert, immune_resolve, immune_status, immune_test, immune_patrol, consensus_*",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    action: { type: "string" },
+                    repoPath: { type: "string" },
+                    text: { type: "string" },
+                    source: { type: "string" },
+                },
+                required: ["action"],
+            },
+        },
+        // === Analytics (3) ===
+        {
+            name: "swarm_budget",
+            description: "Budget analysis & cost tracking. Actions: analyze, models, select, recommend, route, log_usage, usage, stats, config, set_config, check, remaining, report, cost_log, cost_agent, cost_project, cost_limit, cost_remaining",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    action: { type: "string" },
+                    repoPath: { type: "string" },
+                    agentId: { type: "string" },
+                    taskId: { type: "string" },
+                },
+                required: ["action"],
+            },
+        },
+        {
+            name: "swarm_moe",
+            description: "Mixture of Experts routing & SONA task assignment. Actions: route, feedback, experts, add_expert, remove_expert, config, set_config, stats, history, classify, reset, sona_route, sona_learn, sona_classify, sona_profile, sona_profiles, sona_specialists, sona_history, sona_stats, sona_config, sona_set_config, sona_reset",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    action: { type: "string" },
+                    repoPath: { type: "string" },
+                    content: { type: "string" },
+                },
+                required: ["action"],
+            },
+        },
+        {
+            name: "swarm_quality",
+            description: "Quality gates & regression tracking. Actions: run, report, threshold, pr_ready, regression_baseline, regression_check, regression_list, regression_resolve, regression_baselines",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    action: { type: "string" },
+                    repoPath: { type: "string" },
                     commitMode: { type: "string", enum: ["none", "local", "push"] },
                 },
                 required: ["action"],
             },
         },
-        // Additional essential tools (abbreviated for brevity - full list in original)
+        // === Intelligence (4) ===
         {
-            name: "swarm_review",
-            description: "Code review between agents. Actions: request, respond, list",
-            inputSchema: { type: "object", properties: { action: { type: "string" }, repoPath: { type: "string" } }, required: ["action"] },
+            name: "swarm_vector",
+            description: "HNSW vector search. Actions: init, add, add_batch, search, get, delete, list, stats, config, set_config, clear, duplicates, embed",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    action: { type: "string" },
+                    repoPath: { type: "string" },
+                    query: { type: "string" },
+                    text: { type: "string" },
+                },
+                required: ["action"],
+            },
         },
         {
-            name: "swarm_voting",
-            description: "Voting for dangerous actions. Actions: start, vote, list, get",
-            inputSchema: { type: "object", properties: { action: { type: "string" }, repoPath: { type: "string" } }, required: ["action"] },
+            name: "swarm_booster",
+            description: "Agent booster for quick tasks. Actions: execute, can_boost, stats, history, config, set_config, types",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    action: { type: "string" },
+                    repoPath: { type: "string" },
+                },
+                required: ["action"],
+            },
         },
         {
-            name: "swarm_auction",
-            description: "Task auction system. Actions: announce, bid, poll",
-            inputSchema: { type: "object", properties: { action: { type: "string" }, repoPath: { type: "string" } }, required: ["action"] },
+            name: "swarm_brain",
+            description: "Brainstorming & systematic debugging. Actions: start, ask, answer, propose, present, validate, save, get, list, debug_start, debug_investigate, debug_evidence, debug_phase1, debug_patterns, debug_phase2, debug_hypothesis, debug_test, debug_fix, debug_verify, debug_get, debug_list, debug_redflags",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    action: { type: "string" },
+                    repoPath: { type: "string" },
+                    sessionId: { type: "string" },
+                },
+                required: ["action"],
+            },
         },
         {
-            name: "swarm_message",
-            description: "Agent messaging system. Actions: send, inbox, ack, reply, search, thread",
-            inputSchema: { type: "object", properties: { action: { type: "string" }, repoPath: { type: "string" } }, required: ["action"] },
+            name: "swarm_context",
+            description: "Context management, shared notes & batch processing. Actions: estimate, compress, compress_many, stats, pool_add, pool_get, pool_search_tag, pool_search, pool_helpful, pool_update, pool_cleanup, pool_stats, batch_queue, batch_config, batch_set_config, batch_job, batch_jobs, batch_result, batch_stats, batch_flush",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    action: { type: "string" },
+                    repoPath: { type: "string" },
+                    text: { type: "string" },
+                },
+                required: ["action"],
+            },
+        },
+        // === Infra (7) ===
+        {
+            name: "swarm_health",
+            description: "Agent health monitoring & urgent preemption. Actions: check, dead, reassign, summary, preempt_trigger, preempt_resolve, preempt_active",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    action: { type: "string" },
+                    repoPath: { type: "string" },
+                    agent: { type: "string" },
+                    commitMode: { type: "string", enum: ["none", "local", "push"] },
+                },
+                required: ["action"],
+            },
         },
         {
-            name: "swarm_briefing",
-            description: "Agent briefing management. Actions: save, load",
-            inputSchema: { type: "object", properties: { action: { type: "string" }, repoPath: { type: "string" } }, required: ["action"] },
+            name: "swarm_external",
+            description: "External integrations & platform checks. Actions: enable_github, enable_linear, sync_github, sync_linear, sync_all, export_github, export_linear, status, create_issue, close_issue, comment, platform_request, platform_respond, platform_list",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    action: { type: "string" },
+                    repoPath: { type: "string" },
+                },
+                required: ["action"],
+            },
+        },
+        {
+            name: "swarm_expertise",
+            description: "Agent expertise tracking & smart routing. Actions: track, suggest, record, experts, list, route_record, route_find_agent, route_expertise, route_predict, route_auto_assign",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    action: { type: "string" },
+                    repoPath: { type: "string" },
+                    agent: { type: "string" },
+                },
+                required: ["action"],
+            },
         },
         {
             name: "swarm_knowledge",
-            description: "Knowledge base management. Actions: archive, search",
-            inputSchema: { type: "object", properties: { action: { type: "string" }, repoPath: { type: "string" } }, required: ["action"] },
+            description: "Knowledge base, docs generation & advice. Actions: archive, search, docs_generate, docs_task_docs, docs_list, docs_get, advice_request, advice_provide, advice_list",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    action: { type: "string" },
+                    repoPath: { type: "string" },
+                    query: { type: "string" },
+                    commitMode: { type: "string", enum: ["none", "local", "push"] },
+                },
+                required: ["action"],
+            },
         },
         {
-            name: "swarm_snapshot",
-            description: "File snapshots for rollback. Actions: create, rollback, list",
-            inputSchema: { type: "object", properties: { action: { type: "string" }, repoPath: { type: "string" } }, required: ["action"] },
-        },
-        {
-            name: "swarm_health",
-            description: "Agent health monitoring. Actions: check, dead, reassign, summary",
-            inputSchema: { type: "object", properties: { action: { type: "string" }, repoPath: { type: "string" } }, required: ["action"] },
-        },
-        {
-            name: "swarm_quality",
-            description: "Quality gate checks. Actions: run, report, threshold, pr_ready",
-            inputSchema: { type: "object", properties: { action: { type: "string" }, repoPath: { type: "string" } }, required: ["action"] },
-        },
-        {
-            name: "swarm_cost",
-            description: "API cost tracking. Actions: log, agent, project, limit, remaining",
-            inputSchema: { type: "object", properties: { action: { type: "string" }, repoPath: { type: "string" } }, required: ["action"] },
-        },
-        {
-            name: "swarm_brainstorm",
-            description: "Brainstorming sessions. Actions: start, ask, answer, propose, present, validate, save, get, list",
-            inputSchema: { type: "object", properties: { action: { type: "string" }, repoPath: { type: "string" } }, required: ["action"] },
-        },
-        {
-            name: "swarm_plan",
-            description: "Implementation planning. Actions: create, add, next, start, step, complete, prompt, export, status, list, ready",
-            inputSchema: { type: "object", properties: { action: { type: "string" }, repoPath: { type: "string" } }, required: ["action"] },
-        },
-        {
-            name: "swarm_debug",
-            description: "Systematic debugging. Actions: start, investigate, evidence, phase1, patterns, phase2, hypothesis, test, fix, verify, get, list, redflags",
-            inputSchema: { type: "object", properties: { action: { type: "string" }, repoPath: { type: "string" } }, required: ["action"] },
-        },
-        {
-            name: "swarm_spec",
-            description: "Spec pipeline. Actions: start, phase, complete, get, list, export",
-            inputSchema: { type: "object", properties: { action: { type: "string" }, repoPath: { type: "string" } }, required: ["action"] },
-        },
-        {
-            name: "swarm_qa",
-            description: "QA loop. Actions: start, iterate, fix, get, list, suggest, report",
-            inputSchema: { type: "object", properties: { action: { type: "string" }, repoPath: { type: "string" } }, required: ["action"] },
-        },
-        {
-            name: "swarm_hooks",
-            description: "Git hooks management. Actions: install, uninstall, run, config, update, list",
-            inputSchema: { type: "object", properties: { action: { type: "string" }, repoPath: { type: "string" } }, required: ["action"] },
-        },
-        {
-            name: "swarm_patrol",
-            description: "Ghost mode patrol. Actions: run",
-            inputSchema: { type: "object", properties: { action: { type: "string" }, repoPath: { type: "string" } }, required: ["action"] },
-        },
-        {
-            name: "swarm_mcp",
-            description: "MCP scanner and authorization. Actions: scan, authorize, policy",
-            inputSchema: { type: "object", properties: { action: { type: "string" }, repoPath: { type: "string" } }, required: ["action"] },
-        },
-        {
-            name: "swarm_telegram",
-            description: "Telegram notifications. Actions: setup, send, notify_task_created, notify_task_completed",
-            inputSchema: { type: "object", properties: { action: { type: "string" }, repoPath: { type: "string" } }, required: ["action"] },
+            name: "swarm_session",
+            description: "Session recording, timeline & screenshots. Actions: start, log, stop, list, replay, timeline_generate, timeline_visualize, screenshot_share, screenshot_list",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    action: { type: "string" },
+                    repoPath: { type: "string" },
+                    agent: { type: "string" },
+                    sessionId: { type: "string" },
+                },
+                required: ["action"],
+            },
         },
         {
             name: "swarm_clusters",
-            description: "Tool clusters. Actions: init, list, tools, find, add, create, summary",
-            inputSchema: { type: "object", properties: { action: { type: "string" }, repoPath: { type: "string" } }, required: ["action"] },
+            description: "Tool clusters & conflict prediction. Actions: init, list, tools, find, add, create, summary, conflict_predict, conflict_analyze, conflict_hotspots, conflict_record",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    action: { type: "string" },
+                    repoPath: { type: "string" },
+                    commitMode: { type: "string", enum: ["none", "local", "push"] },
+                },
+                required: ["action"],
+            },
+        },
+        {
+            name: "swarm_telegram",
+            description: "Telegram notifications & QA loops. Actions: setup, config, enable, disable, send, notify_task_created, notify_task_completed, notify_task_failed, notify_agent_joined, notify_agent_died, start_polling, stop_polling, command, qa_start, qa_iterate, qa_fix, qa_get, qa_list, qa_suggest, qa_report",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    action: { type: "string" },
+                    repoPath: { type: "string" },
+                    message: { type: "string" },
+                },
+                required: ["action"],
+            },
         },
     ];
 }
@@ -733,14 +827,18 @@ function toolNeedsBridge(toolName: string, args: Record<string, unknown>): boole
     const fsTools = [
         "swarm_file",
         "swarm_git",
-        "swarm_snapshot",
-        "swarm_guard",
+        "swarm_worktree",
     ];
 
     // Some actions within tools need bridge
     if (toolName === "swarm_agent") {
         const action = args.action as string;
         return action === "init" || action === "register";
+    }
+
+    // swarm_file includes snapshot actions which also need FS
+    if (toolName === "swarm_file") {
+        return true;
     }
 
     return fsTools.includes(toolName);
@@ -771,25 +869,30 @@ async function executeCloudTool(
     }
 
     if (toolName === "swarm_telegram" && env.TELEGRAM_BOT_TOKEN) {
-        const message = args.message as string;
-        try {
-            await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    chat_id: env.TELEGRAM_CHAT_ID,
-                    text: message,
-                    parse_mode: "Markdown",
-                }),
-            });
-            return { ok: true, sent: true };
-        } catch {
-            return { ok: false, error: "Telegram API error" };
+        const action = args.action as string;
+        if (action === "send" || action.startsWith("notify_")) {
+            const message = args.message as string;
+            try {
+                await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        chat_id: env.TELEGRAM_CHAT_ID,
+                        text: message,
+                        parse_mode: "Markdown",
+                    }),
+                });
+                return { ok: true, sent: true };
+            } catch {
+                return { ok: false, error: "Telegram API error" };
+            }
         }
     }
 
     return { ok: true, tool: toolName, args };
 }
+
+
 
 // ============ MCP SESSION DURABLE OBJECT ============
 

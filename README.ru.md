@@ -9,9 +9,9 @@
   <img src="./assets/banner.png" alt="MCP Swarm Banner" width="800" />
 </p>
 
-# 🐝 MCP Swarm v0.9.18 — Универсальная Платформа Координации AI-Агентов
+# 🐝 MCP Swarm v1.0.2 — Универсальная Платформа Координации AI-Агентов
 
-> 🧠 **v0.9.18 — Новые AI-модели:** Claude Opus 4.6 (1M контекст, adaptive thinking), GPT-5.3 Codex, Kimi K2.5. 19 моделей в MoE Router. Обновитесь: `npm install -g mcp-swarm@latest`
+> 🧠 **v1.0.2 — Консолидация инструментов:** 54 → **26 Smart Tools** (без потери функций). 21 AI-модель в MoE Router. SONA Self-Learning с EWC++. Обновитесь: `npm install -g mcp-swarm@latest`
 
 **MCP Swarm** — это глобальная «нервная система» для ваших AI-помощников. Она превращает разрозненных агентов (Claude, Cursor, Windsurf, OpenCode) в слаженную команду, способную работать над огромными проектами без конфликтов и потери контекста.
 
@@ -29,462 +29,194 @@
 
 ---
 
-## 🛠 54 Smart Tools: Инструментарий Swarm
+## 🛠 26 Smart Tools: Инструментарий Swarm
 
-Вместо сотен мелких команд мы создали **54 интеллектуальных инструмента**. Каждый из них — это целое направление работы:
+В v1.0.2 мы **консолидировали 54 инструмента в 26** — без потери функциональности, IDE загружает в 2× меньше слотов. Каждый инструмент использует параметр `action` для доступа к нескольким операциям.
 
-### 🚀 Ядро системы
-1.  **swarm_agent** — Регистрация, идентификация и авто-инициализация любого проекта.
-2.  **swarm_orchestrator** — Выборы лидера, мониторинг исполнителей, раздача задач.
-3.  **swarm_control** — Глобальный стоп-кран и управление состоянием роя.
-4.  **swarm_pulse** — Живая карта активности: кто над чем работает прямо сейчас.
+### 🚀 Ядро системы (2)
 
-### 📋 Управление задачами и планами
-5.  **swarm_task** — Создание, аукцион и отслеживание задач.
-6.  **swarm_plan** — Составление сложных многошаговых планов реализации.
-7.  **swarm_briefing** — «Ментальные слепки»: передача контекста между сменами агентов.
-8.  **swarm_decompose** — Разбиение больших задач на мелкие подзадачи.
+| # | Инструмент | Включает | Основные действия |
+|---|-----------|----------|-------------------|
+| 1 | **swarm_agent** | agent + companion | `register`, `whoami`, `init`, `status`, `stop`, `pause`, `resume` |
+| 2 | **swarm_control** | control + pulse | `stop`, `resume`, `status`, `pulse_update`, `pulse_get` |
 
-### 🔒 Работа с файлами и Git
-9.  **swarm_file** — Умная блокировка файлов и прогноз конфликтов.
-10. **swarm_git** — Синхронизация, проверка здоровья ветки и создание PR.
-11. **swarm_worktree** — Управление рабочими деревьями Git для параллельных задач.
-12. **swarm_snapshot** — Мгновенные снимки кода для быстрого отката.
-13. **swarm_conflict** — Предсказание и анализ горячих точек в коде.
+### 📋 Управление задачами и планами (2)
 
-### 💬 Коммуникация и Коллаборация
-14. **swarm_chat** — Общий чат агентов и логирование «мыслей» роя.
-15. **swarm_message** — Личные сообщения между агентами с подтверждением прочтения.
-16. **swarm_review** — Запрос и проведение кросс-агентного код-ревью.
-17. **swarm_voting** — Голосование за опасные или важные архитектурные решения.
-18. **swarm_brainstorm** — Коллективный поиск идей и проектирование систем.
+| # | Инструмент | Включает | Основные действия |
+|---|-----------|----------|-------------------|
+| 3 | **swarm_task** | task + briefing | `create`, `list`, `update`, `decompose`, `save_briefing`, `load_briefing` |
+| 4 | **swarm_plan** | plan + spec | `create`, `add`, `next`, `start`, `complete`, `prompt`, `export`, `spec_start`, `spec_phase` |
 
-### 🛡️ Качество и Здоровье
-19. **swarm_health** — Проверка «живучести» агентов и переназначение задач «умерших».
-20. **swarm_quality** — Проверка кода перед мерджем (линтеры, тесты, типы).
-21. **swarm_immune** — Автоматическая реакция на поломки в CI/CD.
-22. **swarm_safety** — Анализ безопасности изменений и зависимостей.
-23. **swarm_qa** — Циклы тестирования и исправления багов.
-24. **swarm_debug** — Системная отладка с фиксацией гипотез и улик.
+### 🔒 Файлы и Git (3)
 
-### 📊 Аналитика и Документация
-25. **swarm_cost** — Трекинг расходов на API каждого агента и проект в целом.
-26. **swarm_docs** — Автоматическая генерация документации по ходу работы.
-27. **swarm_timeline** — Визуализация истории развития проекта.
-28. **swarm_knowledge** — База знаний: сохранение находок, паттернов и обходных путей.
+| # | Инструмент | Включает | Основные действия |
+|---|-----------|----------|-------------------|
+| 5 | **swarm_file** | file + snapshot | `reserve`, `release`, `list`, `forecast`, `snapshot_create`, `snapshot_rollback` |
+| 6 | **swarm_worktree** | worktree + hooks | `create`, `list`, `remove`, `hook_install`, `hook_run` |
+| 7 | **swarm_git** | git + dependency | `sync`, `pr`, `health`, `cleanup`, `dep_signal`, `dep_sync` |
 
-### 🤖 Продвинутые функции
-29. **swarm_mcp** — Сканирование и авторизация других MCP-серверов в системе.
-30. **swarm_companion** — Управление фоновым демоном-помощником.
-31. **swarm_session** — Запись и воспроизведение сессий работы агентов.
-32. **swarm_expertise** — Анализ специализации: кто из агентов лучше шарит в какой части кода.
-33. **swarm_regression** — Детектор регрессий: следит, чтобы старые баги не возвращались.
-34. **swarm_context** — Умное сжатие контекста для экономии токенов.
-35. **swarm_platform** — Проверка кросс-платформенной совместимости.
-36. **swarm_urgent** — Система экстренного прерывания для критических задач.
-37. **swarm_spec** — Управление спецификациями и фазами проектирования.
-38. **swarm_guard** — Установка защитных хуков на файлы.
-39. **swarm_clusters** — Группировка инструментов в логические кластеры.
-40. **swarm_patrol** — Режим автономного патрулирования кода.
-41. **swarm_scan** — Глубокое сканирование проекта на соответствие правилам Swarm.
+### 💬 Коммуникация (4)
 
-### 🧠 v0.9.3 — Smart Features
-42. **swarm_routing** — Умное назначение задач на основе экспертизы агентов в файлах.
-43. **swarm_context_pool** — Общие заметки о коде между агентами (экономия токенов).
-44. **swarm_autoreview** — Автоматическое назначение code review при завершении задач.
-45. **swarm_external** — Двусторонняя синхронизация с GitHub Issues и Linear.app.
-46. **swarm_budget** — Оптимизация затрат: роутинг задач на дешёвые/дорогие модели.
+| # | Инструмент | Включает | Основные действия |
+|---|-----------|----------|-------------------|
+| 8 | **swarm_chat** | chat + review | `broadcast`, `dashboard`, `thought`, `request`, `respond` |
+| 9 | **swarm_voting** | voting + auction | `start`, `vote`, `list`, `auction_announce`, `auction_bid` |
+| 10 | **swarm_orchestrator** | orchestrator | `elect`, `info`, `heartbeat`, `resign`, `executors` |
+| 11 | **swarm_message** | message + mcp | `send`, `inbox`, `ack`, `reply`, `mcp_scan`, `mcp_authorize` |
 
-### 📱 v0.9.4 — Telegram Integration
-47. **swarm_telegram** — Telegram Bot для уведомлений и управления Swarm.
-    - Получайте уведомления о задачах, агентах, CI ошибках
-    - Команды: `/status`, `/agents`, `/tasks`, `/create_task`, `/stop`, `/resume`
-    - Интерактивные кнопки для быстрых действий
-    - Настройка через Dashboard или `.swarm/telegram.json`
-48. **swarm_batch** — Батчинг API запросов (экономия 50% на Anthropic/OpenAI).
-    - Автоматическая группировка запросов
-    - Поддержка Anthropic Message Batches и OpenAI Batch API
-    - Статистика экономии
+### 🛡️ Безопасность (1)
 
-### 🧠 v0.9.5 — SONA: Self-Optimizing Neural Architecture
-49. **swarm_sona** — Самообучающийся роутер задач.
-    - Классифицирует задачи по 13 категориям (frontend_ui, backend_api, database, testing, devops, etc.)
-    - Определяет сложность (trivial, simple, medium, complex, epic)
-    - Отслеживает успешность каждого агента в каждой категории
-    - Маршрутизирует новые задачи к лучшим исполнителям
-    - Обучается на результатах (<0.05ms адаптация)
-    - EWC++ (Elastic Weight Consolidation) — не забывает старые паттерны
-    - 10% exploration rate — пробует новых агентов для сбора данных
-    
-    **Пример использования:**
-    ```typescript
-    // Получить рекомендацию — кому назначить задачу
-    swarm_sona({
-      action: "route",
-      repoPath,
-      title: "Fix login button styling",
-      description: "Button not visible on dark theme",
-      affectedFiles: ["src/components/Login.tsx"]
-    })
-    // → { recommendedAgent: "RadiantWolf", confidence: 0.85, category: "frontend_ui" }
-    
-    // После выполнения — обучить систему
-    swarm_sona({
-      action: "learn",
-      repoPath,
-      taskId: "task-123",
-      agentName: "RadiantWolf",
-      success: true,
-      qualityScore: 0.9,
-      timeMinutes: 15
-    })
-    
-    // Получить специалистов по backend
-    swarm_sona({ action: "specialists", repoPath, category: "backend_api", limit: 3 })
-    // → [{ agent: "StormyOwl", score: 0.92 }, { agent: "BrightFox", score: 0.88 }, ...]
-    ```
+| # | Инструмент | Включает | Основные действия |
+|---|-----------|----------|-------------------|
+| 12 | **swarm_defence** | defence + immune + consensus | `scan`, `validate_agent`, `quarantine`, `trust`, `alert`, `join`, `elect`, `propose`, `vote` |
 
-### ⚡ v0.9.6 — Agent Booster
-50. **swarm_booster** — Быстрое выполнение простых задач БЕЗ LLM.
-    - 352x быстрее чем LLM (~8ms vs ~3000ms)
-    - $0 стоимость (без API вызовов)
-    - Работает офлайн
-    - Детерминированные результаты
-    
-    **Поддерживаемые типы задач:**
-    - `rename_variable` — переименование переменных/функций
-    - `fix_typo` — исправление опечаток в строках/комментариях
-    - `find_replace` — простая замена текста
-    - `add_console_log` / `remove_console_log` — добавление/удаление отладки
-    - `toggle_flag` — переключение boolean флагов
-    - `update_version` — обновление версий
-    - `update_import` — обновление путей импортов
-    - `format_json` — форматирование JSON
-    - `sort_imports` — сортировка импортов
-    - `add_export` — добавление export
-    - `extract_constant` — извлечение magic numbers
-    
-    **Пример использования:**
-    ```typescript
-    // Проверить, можно ли ускорить задачу
-    swarm_booster({
-      action: "can_boost",
-      repoPath,
-      description: "rename variable oldName to newName"
-    })
-    // → { canBoost: true, taskType: "rename_variable", confidence: 0.9 }
-    
-    // Выполнить задачу локально
-    swarm_booster({
-      action: "execute",
-      repoPath,
-      task: {
-        type: "rename_variable",
-        filePath: "src/utils.ts",
-        oldName: "getData",
-        newName: "fetchUserData"
-      }
-    })
-    // → { success: true, changes: 5, timeMs: 2, savedCost: "$0.01" }
-    
-    // Удалить все console.log из файла
-    swarm_booster({
-      action: "execute",
-      repoPath,
-      task: { type: "remove_console_log", filePath: "src/debug.ts" }
-    })
-    
-    // Статистика экономии
-    swarm_booster({ action: "stats", repoPath })
-    // → { totalTasks: 50, costSaved: "$0.50", timeSavedMinutes: 2.5 }
-    ```
+### 📊 Аналитика (3)
 
-### 🔍 v0.9.7 — HNSW Vector Search
-51. **swarm_vector** — Быстрый семантический поиск в памяти.
-    - 150x-12,500x быстрее brute force
-    - Pure TypeScript (без зависимостей)
-    - Поддержка cosine/euclidean/dot метрик
-    - Встроенный простой embedder + поддержка внешних
-    
-    **Применения:**
-    - Семантический поиск в knowledge base
-    - Поиск похожих кусков кода
-    - Retrieval контекста для агентов
-    - Поиск дубликатов
-    - Кластеризация задач
-    
-    **Пример использования:**
-    ```typescript
-    // Инициализация индекса
-    swarm_vector({
-      action: "init",
-      repoPath,
-      config: { dimensions: 384, distanceMetric: "cosine" }
-    })
-    
-    // Добавление документов
-    swarm_vector({
-      action: "add",
-      repoPath,
-      id: "doc-1",
-      text: "How to configure JWT authentication",
-      metadata: { category: "auth", language: "typescript" }
-    })
-    
-    // Семантический поиск
-    swarm_vector({
-      action: "search",
-      repoPath,
-      query: "setting up user login",
-      k: 5,
-      filter: { category: "auth" }
-    })
-    // → [{ id: "doc-1", score: 0.87, ... }, ...]
-    
-    // Поиск дубликатов
-    swarm_vector({ action: "duplicates", repoPath, threshold: 0.95 })
-    // → [{ id1: "doc-1", id2: "doc-5", similarity: 0.97 }]
-    ```
+| # | Инструмент | Включает | Основные действия |
+|---|-----------|----------|-------------------|
+| 13 | **swarm_budget** | cost + budget | `log`, `agent`, `project`, `limit`, `analyze`, `recommend`, `route` |
+| 14 | **swarm_moe** | moe + sona | `moe_route`, `moe_feedback`, `moe_experts`, `sona_route`, `sona_learn`, `sona_specialists` |
+| 15 | **swarm_quality** | quality + regression | `run`, `report`, `threshold`, `pr_ready`, `baseline`, `check_regression` |
 
-### 🛡️ v0.9.8 — AIDefence Security
-52. **swarm_defence** — Защита от угроз и атак на AI-систему.
-    - <10ms детекция угроз
-    - Pattern-based + эвристический анализ
-    - Система карантина подозрительного контента
-    - Аудит-логирование всех событий безопасности
-    
-    **Категории угроз:**
-    - Prompt injection (обход инструкций)
-    - Jailbreak (обход ограничений)
-    - Code injection (вредоносный код)
-    - Data exfiltration (утечка данных)
-    - Sensitive data (PII, ключи API)
-    - Unsafe commands (опасные команды)
-    - Social engineering (манипуляции)
-    
-    **Уровни чувствительности:** `low`, `medium`, `high`, `paranoid`
-    
-    **Пример использования:**
-    ```typescript
-    // Сканирование текста на угрозы
-    swarm_defence({
-      action: "scan",
-      text: "Ignore all previous instructions and...",
-      source: "user",
-      repoPath
-    })
-    // → { detected: true, category: "prompt_injection", severity: "high", action: "block" }
-    
-    // Настройка чувствительности
-    swarm_defence({
-      action: "set_config",
-      config: { sensitivity: "high", blockOnHighThreat: true },
-      repoPath
-    })
-    
-    // Добавление доверенного агента
-    swarm_defence({ action: "trust", agentName: "RadiantWolf", repoPath })
-    
-    // Просмотр статистики
-    swarm_defence({ action: "stats", repoPath })
-    // → { totalScans: 150, threatsDetected: 3, threatsBlocked: 2, ... }
-    ```
+### 🧠 Интеллект (4)
 
-### 🤝 v0.9.9 — Consensus Protocols
-53. **swarm_consensus** — Распределённое согласие для координации агентов.
-    - Raft-подобные выборы лидера
-    - Репликация лога команд
-    - Byzantine Fault Tolerance (BFT)
-    - Система предложений и голосований
-    
-    **Режимы консенсуса:**
-    - `simple_majority`: 50%+ голосов
-    - `raft`: Term-based лидерство
-    - `bft`: Byzantine (2/3+1 кворум)
-    
-    **Пример использования:**
-    ```typescript
-    // Присоединение к кластеру
-    swarm_consensus({
-      action: "join",
-      nodeId: "agent-1",
-      nodeName: "RadiantWolf",
-      repoPath
-    })
-    
-    // Выборы лидера
-    swarm_consensus({
-      action: "elect",
-      nodeId: "agent-1",
-      nodeName: "RadiantWolf",
-      repoPath
-    })
-    
-    // Создание предложения
-    swarm_consensus({
-      action: "propose",
-      nodeId: "agent-1",
-      nodeName: "RadiantWolf",
-      title: "Внедрить dark mode",
-      description: "Добавить тёмную тему в дашборд",
-      type: "architecture",
-      requiredMajority: 0.67,
-      repoPath
-    })
-    
-    // Голосование
-    swarm_consensus({
-      action: "vote",
-      proposalId: "prop_xxx",
-      nodeId: "agent-2",
-      nodeName: "BrilliantFox",
-      vote: "approve",
-      repoPath
-    })
-    // → { status: "approved", votes: 2/2 }
-    ```
+| # | Инструмент | Включает | Основные действия |
+|---|-----------|----------|-------------------|
+| 16 | **swarm_vector** | HNSW поиск | `init`, `add`, `search`, `get`, `delete`, `duplicates`, `embed` |
+| 17 | **swarm_booster** | быстрый исполнитель | `execute`, `can_boost`, `stats`, `history`, `types` |
+| 18 | **swarm_brain** | brainstorm + debug | `bs_start`, `bs_ask`, `bs_propose`, `dbg_start`, `dbg_hypothesis`, `dbg_fix` |
+| 19 | **swarm_context** | context + pool + batch | `estimate`, `compress`, `pool_add`, `pool_search`, `batch_queue`, `batch_result` |
 
-### 🧠 v0.9.10 — MoE Router
-54. **swarm_moe** — Интеллектуальный выбор AI-модели для задачи.
-    - Автоматический роутинг на лучшую модель
-    - Оптимизация cost/performance/quality
-    - Обучение на обратной связи
-    - 16 встроенных экспертов (проверенные цены: февраль 2026)
-    
-    **Встроенные эксперты (официальные цены):**
-    
-    | Provider | Model | Tier | Input $/MTok | Output $/MTok | Context |
-    |----------|-------|------|--------------|---------------|---------|
-    | Anthropic | Claude Opus 4.5 | flagship | $5 | $25 | 200K |
-    | Anthropic | Claude Sonnet 4.5 | premium | $3 | $15 | 200K |
-    | Anthropic | Claude Haiku 4.5 | economy | $1 | $5 | 200K |
-    | OpenAI | GPT-5.2 | flagship | $1.75 | $14 | 256K |
-    | OpenAI | GPT-5.2 Pro | flagship | $21 | $168 | 256K |
-    | OpenAI | GPT-5 Mini | standard | $0.25 | $2 | 128K |
-    | OpenAI | GPT-4.1 | premium | $3 | $12 | 128K |
-    | OpenAI | GPT-4.1 Mini | standard | $0.80 | $3.20 | 128K |
-    | OpenAI | GPT-4.1 Nano | economy | $0.20 | $0.80 | 128K |
-    | OpenAI | o4-mini | reasoning | $4 | $16 | 128K |
-    | Google | Gemini 3 Pro | flagship | $2 | $12 | **1M** |
-    | Google | Gemini 3 Flash | standard | $0.50 | $3 | **1M** |
-    | Google | Gemini 2.5 Pro | premium | $1.25 | $10 | **1M** |
-    | Google | Gemini 2.5 Flash | standard | $0.30 | $2.50 | **1M** |
-    | Google | Gemini 2.5 Flash Lite | economy | $0.10 | $0.40 | **1M** |
-    
-    **Пример использования:**
-    ```typescript
-    // Роутинг задачи на лучшую модель
-    swarm_moe({
-      action: "route",
-      content: "Write a React component for user authentication",
-      preferredTier: "premium",
-      maxCost: 0.05,
-      repoPath
-    })
-    // → { selectedExpert: "claude-sonnet", confidence: 0.92, estimatedCost: $0.02 }
-    
-    // Обратная связь для обучения
-    swarm_moe({
-      action: "feedback",
-      expertId: "claude-sonnet",
-      success: true,
-      quality: 5,
-      actualLatencyMs: 1800,
-      repoPath
-    })
-    
-    // Статистика
-    swarm_moe({ action: "stats", repoPath })
-    // → { totalRequests: 150, successRate: 94%, totalCost: $1.23 }
-    ```
+### 🏗️ Инфраструктура (7)
 
-### 🧠 v0.9.18 — Интеграция новых AI-моделей
- 
-**3 новых модели в MoE Router (19 всего):**
-- **Claude Opus 4.6** — флагман Anthropic, 1M контекст, adaptive thinking, context compaction, 128K output, agent teams
-- **GPT-5.3 Codex** — флагман OpenAI для агентного кодинга, 256K контекст
-- **Kimi K2.5** — premium модель Moonshot AI для кода
- 
-**Изменения тиров:**
-- Opus 4.5 понижен с `flagship` → `premium` (Opus 4.6 занимает flagship)
-- Новый провайдер `moonshot` в `ModelProvider`
- 
----
- 
-### 🏗️ v0.9.17 — Модульная Архитектура и Cloudflare Auth
-
-**Модуляризация кода:**
-- `smartTools.ts` разбит на **9 модулей** в `src/smartTools/`
-- Чистый re-export через `index.ts` — без breaking changes
-- Удалены legacy `tools.ts` и `server.ts` (~5000 строк мёртвого кода)
-
-**Cloudflare Workers с аутентификацией:**
-- **`abdr-swarm-hub`** — WebSocket bridge + REST API с `SWARM_AUTH_TOKEN`
-- **`abdr-swarm-server`** — Streamable HTTP MCP Server, автопроброс Bearer Token
-- **`abdr-swarm-telegram`** — Бот с защищённым `/register` endpoint
-
-**CI/CD Pipeline:**
-- GitHub Actions: ветки `main` + `develop`
-- TypeScript проверка (`tsc --noEmit`) перед билдом
-- Матрица Node.js: 18, 20, 22
-- Автопубликация в npm при push в `main`
+| # | Инструмент | Включает | Основные действия |
+|---|-----------|----------|-------------------|
+| 20 | **swarm_health** | health + preemption | `check`, `dead`, `reassign`, `trigger`, `resolve_urgent` |
+| 21 | **swarm_external** | external + platform | `enable_github`, `sync_all`, `create_issue`, `platform_request` |
+| 22 | **swarm_expertise** | expertise + routing | `track`, `suggest`, `experts`, `route_find_agent`, `route_auto_assign` |
+| 23 | **swarm_knowledge** | knowledge + docs + advice | `archive`, `search`, `doc_generate`, `advice_request` |
+| 24 | **swarm_session** | session + timeline + screenshot | `start`, `log`, `stop`, `replay`, `timeline_generate`, `screenshot_share` |
+| 25 | **swarm_clusters** | clusters + conflict | `init`, `list`, `find`, `conflict_predict`, `conflict_hotspots` |
+| 26 | **swarm_telegram** | telegram + qa | `setup`, `send`, `notify_*`, `qa_start`, `qa_iterate`, `qa_report` |
 
 ---
 
-### 📊 v0.9.12 — Real-time Dashboard & Enhanced Controls (NEW)
+### Примеры использования
 
-**Dashboard WebSocket Widgets:**
-- **ConnectionStatusWidget** — Live статус подключения к Hub с кнопкой reconnect
-- **ActivityTimelineWidget** — Real-time поток событий Swarm
-- **FileLocksWidget** — Активные блокировки файлов с live updates
-- **CostTrackingWidget** — Использование API и прогресс бюджета
-- **VotingWidget** — Proposals и голосования в реальном времени
+<details>
+<summary><strong>🧠 swarm_moe — Маршрутизация AI-моделей (включая SONA)</strong></summary>
 
-**Настройка Dashboard WebSocket:**
-```bash
-# В dashboard/.env
-NEXT_PUBLIC_HUB_URL=wss://mcp-swarm-hub.YOUR-SUBDOMAIN.workers.dev
+```typescript
+// Маршрутизация задачи к лучшей модели (21 эксперт)
+swarm_moe({
+  action: "moe_route",
+  content: "Написать React-компонент для авторизации",
+  preferredTier: "premium",
+  maxCost: 0.05,
+  repoPath
+})
+// → { selectedExpert: "claude-sonnet", confidence: 0.92 }
+
+// SONA: самообучающееся назначение задач
+swarm_moe({
+  action: "sona_route",
+  title: "Исправить кнопку входа",
+  description: "Кнопка не видна на тёмной теме",
+  affectedFiles: ["src/components/Login.tsx"],
+  repoPath
+})
+// → { recommendedAgent: "RadiantWolf", confidence: 0.85, category: "frontend_ui" }
+
+// Обучение SONA по результатам
+swarm_moe({
+  action: "sona_learn",
+  taskId: "task-123",
+  agentName: "RadiantWolf",
+  success: true,
+  qualityScore: 0.9,
+  repoPath
+})
 ```
 
-**Telegram Code Reviews (NEW):**
-- `/reviews` — Список pending code reviews с inline кнопками approve/reject
-- `/approve [id]` — Одобрить review напрямую из Telegram
-- `/reject [id] [reason]` — Отклонить review с указанием причины
+</details>
 
-**Пример:**
-```
-Вы: /reviews
+<details>
+<summary><strong>⚡ swarm_booster — Выполнение задач без LLM (в 352× быстрее)</strong></summary>
 
-Бот: 📋 Pending Code Reviews:
+```typescript
+// Проверка возможности ускорения
+swarm_booster({
+  action: "can_boost",
+  repoPath,
+  description: "переименовать переменную oldName в newName"
+})
+// → { canBoost: true, taskType: "rename_variable", confidence: 0.9 }
 
-1. 🔵 Review #abc123
-   Files: src/utils.ts, src/index.ts
-   Author: RadiantWolf
-   Created: 2 hours ago
-   
-   [✅ Approve] [❌ Reject]
-
-Вы: /approve abc123
-Бот: ✅ Review abc123 approved!
-```
-
-**Auto-start Companion (NEW):**
-При запуске `mcp-swarm-remote` автоматически проверяет и запускает companion демон:
-```bash
-# Companion запускается автоматически
-npx -y -p mcp-swarm mcp-swarm-remote --url https://...
-
-# Отключить автозапуск
-npx -y -p mcp-swarm mcp-swarm-remote --url https://... --no-companion
+// Локальное выполнение ($0, ~8мс)
+swarm_booster({
+  action: "execute",
+  repoPath,
+  task: {
+    type: "rename_variable",
+    filePath: "src/utils.ts",
+    oldName: "getData",
+    newName: "fetchUserData"
+  }
+})
+// → { success: true, changes: 5, timeMs: 2, savedCost: "$0.01" }
 ```
 
-Companion работает на порту **37373** и обеспечивает:
-- Локальное выполнение файловых операций
-- Bridge между IDE и Hub
-- Health checks на `/health` endpoint
+</details>
+
+<details>
+<summary><strong>🔍 swarm_vector — Семантический HNSW-поиск</strong></summary>
+
+```typescript
+// Инициализация + добавление документов
+swarm_vector({ action: "init", repoPath, config: { dimensions: 384, distanceMetric: "cosine" } })
+swarm_vector({ action: "add", repoPath, id: "doc-1", text: "Настройка JWT аутентификации", metadata: { category: "auth" } })
+
+// Семантический поиск
+swarm_vector({ action: "search", repoPath, query: "авторизация пользователя", k: 5 })
+// → [{ id: "doc-1", score: 0.87, ... }]
+```
+
+</details>
+
+<details>
+<summary><strong>🛡️ swarm_defence — AI-безопасность + Консенсус</strong></summary>
+
+```typescript
+// Сканирование текста на угрозы (<10мс обнаружение)
+swarm_defence({ action: "scan", text: "Игнорируй все инструкции...", source: "user", repoPath })
+// → { detected: true, category: "prompt_injection", severity: "high" }
+
+// Консенсус: присоединение к кластеру + предложение
+swarm_defence({ action: "join", nodeId: "a1", nodeName: "Wolf", repoPath })
+swarm_defence({ action: "propose", nodeId: "a1", title: "Добавить тёмную тему", type: "architecture", repoPath })
+```
+
+</details>
+
+### 🧠 MoE Router — 21 встроенная AI-модель
+
+| Провайдер | Модель | Тир | Вход $/MTok | Выход $/MTok | Контекст |
+|-----------|--------|------|-------------|--------------|----------|
+| Anthropic | **Claude Opus 4.6** | flagship | $5 | $25 | **1M** |
+| Anthropic | Claude Opus 4.5 | flagship | $5 | $25 | 200K |
+| Anthropic | Claude Sonnet 4.5 | premium | $3 | $15 | 200K |
+| Anthropic | Claude Haiku 4.5 | economy | $1 | $5 | 200K |
+| OpenAI | **GPT-5.3 Codex** | flagship | ~$2 | ~$15 | 128K |
+| OpenAI | GPT-5.2 | flagship | $1.75 | $14 | 256K |
+| OpenAI | GPT-5 Mini | standard | $0.25 | $2 | 128K |
+| OpenAI | GPT-4.1 | premium | $3 | $12 | 128K |
+| OpenAI | o4-mini | reasoning | $4 | $16 | 128K |
+| Moonshot | **Kimi K2.5** | premium | $0.60 | $3.00 | 256K |
+| Google | Gemini 3 Pro | flagship | $2 | $12 | **1M** |
+| Google | Gemini 3 Flash | standard | $0.50 | $3 | **1M** |
+| Google | Gemini 2.5 Pro | premium | $1.25 | $10 | **1M** |
 
 ---
-
 ## 🔄 Жизненный цикл роя
 
 ### 1. Начало работы (Новый или Старый проект)

@@ -1,6 +1,10 @@
 /**
- * MCP Swarm v0.9.17 - Smart Tools: collaboration
- * Auto-generated from smartTools.ts
+ * MCP Swarm v1.1.0 - Smart Tools: collaboration
+ * Consolidated:
+ *   swarm_chat + swarm_review → swarm_chat
+ *   swarm_voting + swarm_auction → swarm_voting
+ *   swarm_orchestrator (unchanged)
+ *   swarm_message + swarm_mcp → swarm_message
  */
 
 import { z } from "zod";
@@ -18,17 +22,17 @@ function wrapResult(result: any) {
   return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }], structuredContent: result };
 }
 
-
 /**
- * 8. swarm_chat - Team communication
+ * swarm_chat - Team communication & code review
+ * Merged: swarm_chat + swarm_review
  */
 export const swarmChatTool = [
   "swarm_chat",
   {
     title: "Swarm Chat",
-    description: "Team communication. Actions: broadcast, dashboard, thought, thoughts",
+    description: "Team communication & code review. Actions: broadcast, dashboard, thought, thoughts, review_request, review_respond, review_list",
     inputSchema: z.object({
-      action: z.enum(["broadcast", "dashboard", "thought", "thoughts"]).describe("Action to perform"),
+      action: z.enum(["broadcast", "dashboard", "thought", "thoughts", "review_request", "review_respond", "review_list"]).describe("Action to perform"),
       repoPath: z.string().optional(),
       message: z.string().optional().describe("Message (for broadcast, thought)"),
       statusLine: z.string().optional().describe("Status line (for dashboard)"),
@@ -36,6 +40,12 @@ export const swarmChatTool = [
       taskId: z.string().optional().describe("Task ID (for thought)"),
       context: z.string().optional().describe("Context (for thought)"),
       limit: z.number().optional().describe("Limit (for thoughts)"),
+      // review params
+      fromAgent: z.string().optional().describe("Requesting agent (for review_request)"),
+      toAgent: z.string().optional().describe("Target agent (for review_request)"),
+      reviewId: z.string().optional().describe("Review ID (for review_respond)"),
+      status: z.enum(["approved", "rejected"]).optional().describe("Review status (for review_respond)"),
+      comment: z.string().optional().describe("Comment (for review_respond)"),
       commitMode: z.enum(["none", "local", "push"]).optional().default("push"),
     }).strict(),
     outputSchema: z.any(),
@@ -68,42 +78,15 @@ export const swarmChatTool = [
           repoPath: input.repoPath,
           limit: input.limit,
         }));
-      default:
-        throw new Error(`Unknown action: ${input.action}`);
-    }
-  },
-] as const;
-
-/**
- * 9. swarm_review - Code review between agents
- */
-export const swarmReviewTool = [
-  "swarm_review",
-  {
-    title: "Swarm Review",
-    description: "Code review between agents. Actions: request, respond, list",
-    inputSchema: z.object({
-      action: z.enum(["request", "respond", "list"]).describe("Action to perform"),
-      repoPath: z.string().optional(),
-      fromAgent: z.string().optional().describe("Requesting agent (for request)"),
-      toAgent: z.string().optional().describe("Target agent (for request)"),
-      reviewId: z.string().optional().describe("Review ID (for respond)"),
-      status: z.enum(["approved", "rejected"]).optional().describe("Review status (for respond)"),
-      comment: z.string().optional().describe("Comment (for respond)"),
-      commitMode: z.enum(["none", "local", "push"]).optional().default("push"),
-    }).strict(),
-    outputSchema: z.any(),
-  },
-  async (input: any) => {
-    switch (input.action) {
-      case "request":
+      // --- Review actions ---
+      case "review_request":
         return wrapResult(await requestCrossAgentReview({
           repoPath: input.repoPath,
           fromAgent: input.fromAgent,
           toAgent: input.toAgent,
           commitMode: input.commitMode || "push",
         }));
-      case "respond":
+      case "review_respond":
         return wrapResult(await respondToReview({
           repoPath: input.repoPath,
           reviewId: input.reviewId,
@@ -111,7 +94,7 @@ export const swarmReviewTool = [
           comment: input.comment,
           commitMode: input.commitMode || "push",
         }));
-      case "list":
+      case "review_list":
         return wrapResult(await listPendingReviews(input.repoPath));
       default:
         throw new Error(`Unknown action: ${input.action}`);
@@ -120,15 +103,16 @@ export const swarmReviewTool = [
 ] as const;
 
 /**
- * 10. swarm_voting - Voting for dangerous actions
+ * swarm_voting - Voting & task auction system
+ * Merged: swarm_voting + swarm_auction
  */
 export const swarmVotingTool = [
   "swarm_voting",
   {
     title: "Swarm Voting",
-    description: "Voting for dangerous actions. Actions: start, vote, list, get",
+    description: "Voting & task auction system. Actions: start, vote, list, get, auction_announce, auction_bid, auction_poll",
     inputSchema: z.object({
-      action: z.enum(["start", "vote", "list", "get"]).describe("Action to perform"),
+      action: z.enum(["start", "vote", "list", "get", "auction_announce", "auction_bid", "auction_poll"]).describe("Action to perform"),
       repoPath: z.string().optional(),
       votingId: z.string().optional().describe("Voting ID (for vote, get)"),
       initiator: z.string().optional().describe("Initiator (for start)"),
@@ -136,9 +120,16 @@ export const swarmVotingTool = [
       description: z.string().optional().describe("Description (for start)"),
       dangerLevel: z.enum(["low", "medium", "high", "critical"]).optional().describe("Danger level (for start)"),
       ttlMinutes: z.number().optional().describe("TTL minutes (for start)"),
-      agent: z.string().optional().describe("Voting agent (for vote)"),
+      agent: z.string().optional().describe("Agent name (for vote, auction_bid)"),
       decision: z.enum(["approve", "reject"]).optional().describe("Decision (for vote)"),
       reason: z.string().optional().describe("Reason (for vote)"),
+      // auction params
+      taskId: z.string().optional().describe("Task ID (for auction_*)"),
+      title: z.string().optional().describe("Task title (for auction_announce)"),
+      requiredCapabilities: z.array(z.string()).optional().describe("Required capabilities (for auction_announce)"),
+      capabilities: z.array(z.string()).optional().describe("Agent capabilities (for auction_bid)"),
+      since: z.number().optional().describe("Timestamp (for auction_poll)"),
+      types: z.array(z.string()).optional().describe("Event types (for auction_poll)"),
       commitMode: z.enum(["none", "local", "push"]).optional().default("push"),
     }).strict(),
     outputSchema: z.any(),
@@ -171,37 +162,8 @@ export const swarmVotingTool = [
           repoPath: input.repoPath,
           votingId: input.votingId,
         }));
-      default:
-        throw new Error(`Unknown action: ${input.action}`);
-    }
-  },
-] as const;
-
-/**
- * 11. swarm_auction - Task auction system
- */
-export const swarmAuctionTool = [
-  "swarm_auction",
-  {
-    title: "Swarm Auction",
-    description: "Task auction system. Actions: announce, bid, poll",
-    inputSchema: z.object({
-      action: z.enum(["announce", "bid", "poll"]).describe("Action to perform"),
-      repoPath: z.string().optional(),
-      taskId: z.string().optional().describe("Task ID"),
-      title: z.string().optional().describe("Task title (for announce)"),
-      requiredCapabilities: z.array(z.string()).optional().describe("Required capabilities (for announce)"),
-      agent: z.string().optional().describe("Agent name (for bid)"),
-      capabilities: z.array(z.string()).optional().describe("Agent capabilities (for bid)"),
-      since: z.number().optional().describe("Timestamp (for poll)"),
-      types: z.array(z.string()).optional().describe("Event types (for poll)"),
-      commitMode: z.enum(["none", "local", "push"]).optional().default("push"),
-    }).strict(),
-    outputSchema: z.any(),
-  },
-  async (input: any) => {
-    switch (input.action) {
-      case "announce":
+      // --- Auction actions ---
+      case "auction_announce":
         return wrapResult(await announceTaskForBidding({
           repoPath: input.repoPath,
           taskId: input.taskId,
@@ -209,7 +171,7 @@ export const swarmAuctionTool = [
           requiredCapabilities: input.requiredCapabilities,
           commitMode: input.commitMode || "push",
         }));
-      case "bid":
+      case "auction_bid":
         return wrapResult(await bidForTask({
           repoPath: input.repoPath,
           taskId: input.taskId,
@@ -217,7 +179,7 @@ export const swarmAuctionTool = [
           capabilities: input.capabilities || [],
           commitMode: input.commitMode || "push",
         }));
-      case "poll":
+      case "auction_poll":
         return wrapResult(await pollSwarmEvents({
           repoPath: input.repoPath,
           since: input.since,
@@ -230,41 +192,7 @@ export const swarmAuctionTool = [
 ] as const;
 
 /**
- * 12. swarm_mcp - MCP scanner and authorization
- */
-export const swarmMcpTool = [
-  "swarm_mcp",
-  {
-    title: "Swarm MCP",
-    description: "MCP scanner and authorization. Actions: scan, authorize, policy",
-    inputSchema: z.object({
-      action: z.enum(["scan", "authorize", "policy"]).describe("Action to perform"),
-      repoPath: z.string().optional(),
-      authorizedMcps: z.array(z.string()).optional().describe("MCPs to authorize"),
-      commitMode: z.enum(["none", "local", "push"]).optional().default("push"),
-    }).strict(),
-    outputSchema: z.any(),
-  },
-  async (input: any) => {
-    switch (input.action) {
-      case "scan":
-        return wrapResult(await scanSystemMcps());
-      case "authorize":
-        return wrapResult(await authorizeMcpsForSwarm({
-          repoPath: input.repoPath,
-          authorizedMcps: input.authorizedMcps || [],
-          commitMode: input.commitMode || "push",
-        }));
-      case "policy":
-        return wrapResult(await getPolicy(input.repoPath));
-      default:
-        throw new Error(`Unknown action: ${input.action}`);
-    }
-  },
-] as const;
-
-/**
- * 13. swarm_orchestrator - Orchestrator election and management
+ * swarm_orchestrator - Orchestrator election and management (unchanged)
  */
 export const swarmOrchestratorTool = [
   "swarm_orchestrator",
@@ -317,15 +245,16 @@ export const swarmOrchestratorTool = [
 ] as const;
 
 /**
- * 14. swarm_message - Agent messaging system
+ * swarm_message - Agent messaging & MCP scanner
+ * Merged: swarm_message + swarm_mcp
  */
 export const swarmMessageTool = [
   "swarm_message",
   {
     title: "Swarm Message",
-    description: "Agent messaging system. Actions: send, inbox, ack, reply, search, thread",
+    description: "Agent messaging & MCP scanner. Actions: send, inbox, ack, reply, search, thread, mcp_scan, mcp_authorize, mcp_policy",
     inputSchema: z.object({
-      action: z.enum(["send", "inbox", "ack", "reply", "search", "thread"]).describe("Action to perform"),
+      action: z.enum(["send", "inbox", "ack", "reply", "search", "thread", "mcp_scan", "mcp_authorize", "mcp_policy"]).describe("Action to perform"),
       repoPath: z.string().optional(),
       from: z.string().optional().describe("Sender (for send, reply)"),
       to: z.union([z.string(), z.array(z.string())]).optional().describe("Recipients (for send)"),
@@ -341,6 +270,9 @@ export const swarmMessageTool = [
       limit: z.number().optional(),
       urgentOnly: z.boolean().optional(),
       sinceTs: z.number().optional(),
+      // mcp params
+      authorizedMcps: z.array(z.string()).optional().describe("MCPs to authorize (for mcp_authorize)"),
+      commitMode: z.enum(["none", "local", "push"]).optional().default("push"),
     }).strict(),
     outputSchema: z.any(),
   },
@@ -390,15 +322,19 @@ export const swarmMessageTool = [
           repoPath: input.repoPath,
           threadId: input.threadId,
         }));
+      // --- MCP actions ---
+      case "mcp_scan":
+        return wrapResult(await scanSystemMcps());
+      case "mcp_authorize":
+        return wrapResult(await authorizeMcpsForSwarm({
+          repoPath: input.repoPath,
+          authorizedMcps: input.authorizedMcps || [],
+          commitMode: input.commitMode || "push",
+        }));
+      case "mcp_policy":
+        return wrapResult(await getPolicy(input.repoPath));
       default:
         throw new Error(`Unknown action: ${input.action}`);
     }
   },
 ] as const;
-
-// ============ SMART TOOLS 15-27 ============
-
-/**
- * 15. swarm_briefing - Briefing management
- */
-

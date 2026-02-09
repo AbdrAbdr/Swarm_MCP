@@ -1,6 +1,7 @@
 /**
- * MCP Swarm v0.9.17 - Smart Tools: files
- * Auto-generated from smartTools.ts
+ * MCP Swarm v1.1.0 - Smart Tools: files
+ * Consolidated: swarm_file + swarm_snapshot → swarm_file
+ *               swarm_worktree + swarm_hooks → swarm_worktree
  */
 
 import { z } from "zod";
@@ -17,27 +18,30 @@ function wrapResult(result: any) {
   return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }], structuredContent: result };
 }
 
-
 /**
- * 3. swarm_file - File locking and conflict management
+ * swarm_file - File locking, conflict management & snapshots
+ * Merged: swarm_file + swarm_snapshot
  */
 export const swarmFileTool = [
   "swarm_file",
   {
     title: "Swarm File",
-    description: "File locking and conflict management. Actions: reserve, release, list, forecast, conflicts, safety",
+    description: "File locking, conflict management & snapshots. Actions: reserve, release, list, forecast, conflicts, safety, snap_create, snap_rollback, snap_list",
     inputSchema: z.object({
-      action: z.enum(["reserve", "release", "list", "forecast", "conflicts", "safety"]).describe("Action to perform"),
+      action: z.enum(["reserve", "release", "list", "forecast", "conflicts", "safety", "snap_create", "snap_rollback", "snap_list"]).describe("Action to perform"),
       repoPath: z.string().optional(),
       filePath: z.string().optional().describe("File path (for reserve, release, safety)"),
-      files: z.array(z.string()).optional().describe("Files (for forecast, conflicts)"),
+      files: z.array(z.string()).optional().describe("Files (for forecast, conflicts, snap_create)"),
       agent: z.string().optional().describe("Agent name"),
       exclusive: z.boolean().optional().default(true).describe("Exclusive lock (for reserve)"),
       ttlMs: z.number().optional().describe("TTL in ms (for reserve)"),
-      taskId: z.string().optional().describe("Task ID (for forecast)"),
+      taskId: z.string().optional().describe("Task ID (for forecast, snap_create)"),
       estimatedMinutesFromNow: z.number().optional().describe("Estimated minutes (for forecast)"),
       confidence: z.enum(["low", "medium", "high"]).optional().describe("Confidence (for forecast)"),
       excludeAgent: z.string().optional().describe("Exclude agent (for conflicts)"),
+      // snapshot params
+      snapshotId: z.string().optional().describe("Snapshot ID (for snap_rollback)"),
+      reason: z.string().optional().describe("Reason (for snap_rollback)"),
       commitMode: z.enum(["none", "local", "push"]).optional().default("push"),
     }).strict(),
     outputSchema: z.any(),
@@ -84,35 +88,8 @@ export const swarmFileTool = [
           file: input.filePath,
           agent: input.agent,
         }));
-      default:
-        throw new Error(`Unknown action: ${input.action}`);
-    }
-  },
-] as const;
-
-/**
- * 18. swarm_snapshot - File snapshots for rollback
- */
-export const swarmSnapshotTool = [
-  "swarm_snapshot",
-  {
-    title: "Swarm Snapshot",
-    description: "File snapshots for rollback. Actions: create, rollback, list",
-    inputSchema: z.object({
-      action: z.enum(["create", "rollback", "list"]).describe("Action to perform"),
-      repoPath: z.string().optional(),
-      agent: z.string().optional().describe("Agent name"),
-      taskId: z.string().optional().describe("Task ID"),
-      files: z.array(z.string()).optional().describe("Files to snapshot (for create)"),
-      snapshotId: z.string().optional().describe("Snapshot ID (for rollback)"),
-      reason: z.string().optional().describe("Reason (for rollback)"),
-      commitMode: z.enum(["none", "local", "push"]).optional().default("push"),
-    }).strict(),
-    outputSchema: z.any(),
-  },
-  async (input: any) => {
-    switch (input.action) {
-      case "create":
+      // --- Snapshot actions ---
+      case "snap_create":
         return wrapResult(await createSnapshot({
           repoPath: input.repoPath,
           agent: input.agent,
@@ -120,7 +97,7 @@ export const swarmSnapshotTool = [
           files: input.files || [],
           commitMode: input.commitMode || "push",
         }));
-      case "rollback":
+      case "snap_rollback":
         return wrapResult(await triggerRollback({
           repoPath: input.repoPath,
           snapshotId: input.snapshotId,
@@ -128,7 +105,7 @@ export const swarmSnapshotTool = [
           reason: input.reason,
           commitMode: input.commitMode || "push",
         }));
-      case "list":
+      case "snap_list":
         return wrapResult(await listSnapshots({
           repoPath: input.repoPath,
           taskId: input.taskId,
@@ -141,22 +118,33 @@ export const swarmSnapshotTool = [
 ] as const;
 
 /**
- * 5. swarm_worktree - Git worktree management
+ * swarm_worktree - Git worktree & guard hooks management
+ * Merged: swarm_worktree + swarm_hooks
  */
 export const swarmWorktreeTool = [
   "swarm_worktree",
   {
     title: "Swarm Worktree",
-    description: "Git worktree management. Actions: create, list, remove",
+    description: "Git worktree & guard hooks management. Actions: create, list, remove, hook_install, hook_uninstall, hook_run, hook_config, hook_update, hook_list",
     inputSchema: z.object({
-      action: z.enum(["create", "list", "remove"]).describe("Action to perform"),
+      action: z.enum(["create", "list", "remove", "hook_install", "hook_uninstall", "hook_run", "hook_config", "hook_update", "hook_list"]).describe("Action to perform"),
       repoPath: z.string().optional(),
+      // worktree params
       agentName: z.string().optional().describe("Agent name (for create)"),
       shortDesc: z.string().optional().describe("Short description (for create)"),
       baseRef: z.string().optional().describe("Base ref (for create)"),
       push: z.boolean().optional().describe("Push (for create)"),
       worktreePath: z.string().optional().describe("Worktree path (for remove)"),
       force: z.boolean().optional().describe("Force remove (for remove)"),
+      // hooks params
+      preCommitChecks: z.array(z.string()).optional().describe("Pre-commit checks (for hook_install)"),
+      prePushChecks: z.array(z.string()).optional().describe("Pre-push checks (for hook_install)"),
+      bypassKeyword: z.string().optional().describe("Bypass keyword (for hook_install)"),
+      hooks: z.array(z.string()).optional().describe("Hooks to uninstall (for hook_uninstall)"),
+      hook: z.string().optional().describe("Hook name (for hook_run, hook_update)"),
+      enabled: z.boolean().optional().describe("Enabled (for hook_update)"),
+      checks: z.array(z.string()).optional().describe("Checks (for hook_update)"),
+      commitMode: z.enum(["none", "local", "push"]).optional().default("push"),
     }).strict(),
     outputSchema: z.any(),
   },
@@ -177,37 +165,8 @@ export const swarmWorktreeTool = [
           worktreePath: input.worktreePath,
           force: input.force ?? false,
         }));
-      default:
-        throw new Error(`Unknown action: ${input.action}`);
-    }
-  },
-] as const;
-
-/**
- * 27. swarm_hooks - Git guard hooks
- */
-export const swarmHooksTool = [
-  "swarm_hooks",
-  {
-    title: "Swarm Hooks",
-    description: "Git guard hooks. Actions: install, uninstall, run, config, update, list",
-    inputSchema: z.object({
-      action: z.enum(["install", "uninstall", "run", "config", "update", "list"]).describe("Action to perform"),
-      repoPath: z.string().optional(),
-      preCommitChecks: z.array(z.string()).optional().describe("Pre-commit checks (for install)"),
-      prePushChecks: z.array(z.string()).optional().describe("Pre-push checks (for install)"),
-      bypassKeyword: z.string().optional().describe("Bypass keyword (for install)"),
-      hooks: z.array(z.string()).optional().describe("Hooks to uninstall (for uninstall)"),
-      hook: z.string().optional().describe("Hook name (for run, update)"),
-      enabled: z.boolean().optional().describe("Enabled (for update)"),
-      checks: z.array(z.string()).optional().describe("Checks (for update)"),
-      commitMode: z.enum(["none", "local", "push"]).optional().default("push"),
-    }).strict(),
-    outputSchema: z.any(),
-  },
-  async (input: any) => {
-    switch (input.action) {
-      case "install":
+      // --- Hook actions ---
+      case "hook_install":
         return wrapResult(await installGuardHooks({
           repoPath: input.repoPath,
           preCommitChecks: input.preCommitChecks,
@@ -215,21 +174,21 @@ export const swarmHooksTool = [
           bypassKeyword: input.bypassKeyword,
           commitMode: input.commitMode || "push",
         }));
-      case "uninstall":
+      case "hook_uninstall":
         return wrapResult(await uninstallGuardHooks({
           repoPath: input.repoPath,
           hooks: input.hooks,
         }));
-      case "run":
+      case "hook_run":
         return wrapResult(await runGuardHooks({
           repoPath: input.repoPath,
           hook: input.hook,
         }));
-      case "config":
+      case "hook_config":
         return wrapResult(await getGuardConfig({
           repoPath: input.repoPath,
         }));
-      case "update":
+      case "hook_update":
         return wrapResult(await updateGuardHook({
           repoPath: input.repoPath,
           hook: input.hook,
@@ -237,7 +196,7 @@ export const swarmHooksTool = [
           checks: input.checks,
           commitMode: input.commitMode || "push",
         }));
-      case "list":
+      case "hook_list":
         return wrapResult(await listGuardHooks({
           repoPath: input.repoPath,
         }));
@@ -246,10 +205,3 @@ export const swarmHooksTool = [
     }
   },
 ] as const;
-
-// ============ SMART TOOLS 28-41 ============
-
-/**
- * 28. swarm_screenshot - Screenshot sharing
- */
-

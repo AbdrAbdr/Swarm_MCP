@@ -1,6 +1,7 @@
 /**
- * MCP Swarm v0.9.17 - Smart Tools: core
- * Auto-generated from smartTools.ts
+ * MCP Swarm v1.1.0 - Smart Tools: core
+ * Consolidated: swarm_agent + swarm_companion → swarm_agent
+ *               swarm_control + swarm_pulse → swarm_control
  */
 
 import { z } from "zod";
@@ -15,25 +16,28 @@ function wrapResult(result: any) {
   return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }], structuredContent: result };
 }
 
-
 // ============ SMART TOOLS ============
 
 /**
- * 1. swarm_agent - Agent registration and identity
+ * swarm_agent - Agent registration, identity & companion control
+ * Merged: swarm_agent + swarm_companion
  */
 export const swarmAgentTool = [
   "swarm_agent",
   {
     title: "Swarm Agent",
-    description: "Agent registration and identity. Actions: register, whoami, init",
+    description: "Agent registration, identity & companion control. Actions: register, whoami, init, companion_status, companion_stop, companion_pause, companion_resume",
     inputSchema: z.object({
-      action: z.enum(["register", "whoami", "init"]).describe("Action to perform"),
+      action: z.enum(["register", "whoami", "init", "companion_status", "companion_stop", "companion_pause", "companion_resume"]).describe("Action to perform"),
       repoPath: z.string().optional(),
       commitMode: z.enum(["none", "local", "push"]).optional().default("push"),
+      // companion params
+      port: z.number().optional().default(9999).describe("Companion port"),
+      token: z.string().optional().describe("Auth token"),
     }).strict(),
     outputSchema: z.any(),
   },
-  async (input: { action: string; repoPath?: string; commitMode?: "none" | "local" | "push" }) => {
+  async (input: any) => {
     switch (input.action) {
       case "register":
         return wrapResult(await registerAgent({ repoPath: input.repoPath, commitMode: input.commitMode || "push" }));
@@ -41,6 +45,15 @@ export const swarmAgentTool = [
         return wrapResult(await whoami(input.repoPath || process.cwd()));
       case "init":
         return wrapResult(await bootstrapProject(input.repoPath));
+      // --- Companion actions ---
+      case "companion_status":
+        return wrapResult(await companionLocalStatus(input.port || 9999, input.token));
+      case "companion_stop":
+        return wrapResult(await companionLocalStop(input.port || 9999, input.token));
+      case "companion_pause":
+        return wrapResult(await companionLocalPause(input.port || 9999, input.token));
+      case "companion_resume":
+        return wrapResult(await companionLocalResume(input.port || 9999, input.token));
       default:
         throw new Error(`Unknown action: ${input.action}`);
     }
@@ -48,18 +61,24 @@ export const swarmAgentTool = [
 ] as const;
 
 /**
- * 7. swarm_control - Swarm stop/resume control
+ * swarm_control - Swarm stop/resume control & real-time pulse
+ * Merged: swarm_control + swarm_pulse
  */
 export const swarmControlTool = [
   "swarm_control",
   {
     title: "Swarm Control",
-    description: "Swarm stop/resume control. Actions: stop, resume, status",
+    description: "Swarm stop/resume control & real-time agent pulse. Actions: stop, resume, status, pulse_update, pulse_get",
     inputSchema: z.object({
-      action: z.enum(["stop", "resume", "status"]).describe("Action to perform"),
+      action: z.enum(["stop", "resume", "status", "pulse_update", "pulse_get"]).describe("Action to perform"),
       repoPath: z.string().optional(),
       reason: z.string().optional().describe("Reason for stop"),
       by: z.string().optional().describe("Agent who stopped"),
+      // pulse params
+      agent: z.string().optional().describe("Agent name (for pulse_update)"),
+      currentFile: z.string().optional().describe("Current file (for pulse_update)"),
+      currentTask: z.string().optional().describe("Current task (for pulse_update)"),
+      pulseStatus: z.enum(["active", "idle", "paused", "offline"]).optional().describe("Status (for pulse_update)"),
       commitMode: z.enum(["none", "local", "push"]).optional().default("push"),
     }).strict(),
     outputSchema: z.any(),
@@ -82,83 +101,20 @@ export const swarmControlTool = [
         }));
       case "status":
         return wrapResult(await getStopState(input.repoPath));
-      default:
-        throw new Error(`Unknown action: ${input.action}`);
-    }
-  },
-] as const;
-
-/**
- * 16. swarm_pulse - Real-time agent status
- */
-export const swarmPulseTool = [
-  "swarm_pulse",
-  {
-    title: "Swarm Pulse",
-    description: "Real-time agent status. Actions: update, get",
-    inputSchema: z.object({
-      action: z.enum(["update", "get"]).describe("Action to perform"),
-      repoPath: z.string().optional(),
-      agent: z.string().optional().describe("Agent name (for update)"),
-      currentFile: z.string().optional().describe("Current file (for update)"),
-      currentTask: z.string().optional().describe("Current task (for update)"),
-      status: z.enum(["active", "idle", "paused", "offline"]).optional().describe("Status (for update)"),
-      commitMode: z.enum(["none", "local", "push"]).optional().default("push"),
-    }).strict(),
-    outputSchema: z.any(),
-  },
-  async (input: any) => {
-    switch (input.action) {
-      case "update":
+      // --- Pulse actions ---
+      case "pulse_update":
         return wrapResult(await updateSwarmPulse({
           repoPath: input.repoPath,
           agent: input.agent,
           currentFile: input.currentFile,
           currentTask: input.currentTask,
-          status: input.status || "active",
+          status: input.pulseStatus || "active",
           commitMode: input.commitMode || "push",
         }));
-      case "get":
+      case "pulse_get":
         return wrapResult(await getSwarmPulse(input.repoPath));
       default:
         throw new Error(`Unknown action: ${input.action}`);
     }
   },
 ] as const;
-
-/**
- * 6. swarm_companion - Companion daemon control
- */
-export const swarmCompanionTool = [
-  "swarm_companion",
-  {
-    title: "Swarm Companion",
-    description: "Companion daemon control. Actions: status, stop, pause, resume",
-    inputSchema: z.object({
-      action: z.enum(["status", "stop", "pause", "resume"]).describe("Action to perform"),
-      port: z.number().optional().default(9999).describe("Companion port"),
-      token: z.string().optional().describe("Auth token"),
-    }).strict(),
-    outputSchema: z.any(),
-  },
-  async (input: { action: string; port?: number; token?: string }) => {
-    const port = input.port || 9999;
-    switch (input.action) {
-      case "status":
-        return wrapResult(await companionLocalStatus(port, input.token));
-      case "stop":
-        return wrapResult(await companionLocalStop(port, input.token));
-      case "pause":
-        return wrapResult(await companionLocalPause(port, input.token));
-      case "resume":
-        return wrapResult(await companionLocalResume(port, input.token));
-      default:
-        throw new Error(`Unknown action: ${input.action}`);
-    }
-  },
-] as const;
-
-/**
- * 7. swarm_control - Swarm stop/resume control
- */
-

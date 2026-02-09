@@ -1,6 +1,7 @@
 /**
- * MCP Swarm v0.9.17 - Smart Tools: tasks
- * Auto-generated from smartTools.ts
+ * MCP Swarm v1.1.0 - Smart Tools: tasks
+ * Consolidated: swarm_task + swarm_briefing → swarm_task
+ *               swarm_plan + swarm_spec → swarm_plan
  */
 
 import { z } from "zod";
@@ -17,26 +18,26 @@ function wrapResult(result: any) {
   return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }], structuredContent: result };
 }
 
-
 /**
- * 2. swarm_task - Task management
+ * swarm_task - Task management & briefings
+ * Merged: swarm_task + swarm_briefing
  */
 export const swarmTaskTool = [
   "swarm_task",
   {
     title: "Swarm Task",
-    description: "Task management. Actions: create, list, update, decompose, get_decomposition",
+    description: "Task management & briefings. Actions: create, list, update, decompose, get_decomposition, brief_save, brief_load",
     inputSchema: z.object({
-      action: z.enum(["create", "list", "update", "decompose", "get_decomposition"]).describe("Action to perform"),
+      action: z.enum(["create", "list", "update", "decompose", "get_decomposition", "brief_save", "brief_load"]).describe("Action to perform"),
       repoPath: z.string().optional(),
       // create params
       shortDesc: z.string().optional().describe("Short description (for create)"),
       title: z.string().optional().describe("Task title (for create)"),
       questions: z.array(z.string()).optional().describe("Questions (for create)"),
       answers: z.array(z.string()).optional().describe("Answers (for create)"),
-      notes: z.string().optional().describe("Notes (for create)"),
+      notes: z.string().optional().describe("Notes (for create, brief_save)"),
       // update params
-      taskId: z.string().optional().describe("Task ID (for update, decompose, get_decomposition)"),
+      taskId: z.string().optional().describe("Task ID (for update, decompose, get_decomposition, brief_save, brief_load)"),
       status: z.enum(["open", "in_progress", "needs_review", "done", "canceled"]).optional().describe("Status (for update)"),
       assignee: z.string().optional().describe("Assignee (for update)"),
       branch: z.string().optional().describe("Branch (for update)"),
@@ -49,13 +50,19 @@ export const swarmTaskTool = [
         estimatedMinutes: z.number().optional(),
         dependencies: z.array(z.string()).optional(),
       })).optional().describe("Subtasks (for decompose)"),
+      // briefing params
+      agent: z.string().optional().describe("Agent name (for brief_save, brief_load)"),
+      filesWorkedOn: z.array(z.string()).optional().describe("Files worked on (for brief_save)"),
+      currentState: z.string().optional().describe("Current state (for brief_save)"),
+      nextSteps: z.array(z.string()).optional().describe("Next steps (for brief_save)"),
+      blockers: z.array(z.string()).optional().describe("Blockers (for brief_save)"),
       commitMode: z.enum(["none", "local", "push"]).optional().default("push"),
     }).strict(),
     outputSchema: z.any(),
   },
   async (input: any) => {
     const commitMode = input.commitMode || "push";
-    
+
     switch (input.action) {
       case "create":
         return wrapResult(await createTaskFile({
@@ -92,6 +99,25 @@ export const swarmTaskTool = [
           repoPath: input.repoPath,
           parentTaskId: input.taskId,
         }));
+      // --- Briefing actions ---
+      case "brief_save":
+        return wrapResult(await saveBriefing({
+          repoPath: input.repoPath,
+          taskId: input.taskId,
+          agent: input.agent,
+          filesWorkedOn: input.filesWorkedOn || [],
+          currentState: input.currentState,
+          nextSteps: input.nextSteps || [],
+          blockers: input.blockers,
+          notes: input.notes,
+          commitMode,
+        }));
+      case "brief_load":
+        return wrapResult(await loadBriefing({
+          repoPath: input.repoPath,
+          taskId: input.taskId,
+          agent: input.agent,
+        }));
       default:
         throw new Error(`Unknown action: ${input.action}`);
     }
@@ -99,15 +125,16 @@ export const swarmTaskTool = [
 ] as const;
 
 /**
- * 23. swarm_plan - Implementation plan management
+ * swarm_plan - Implementation plans & specification pipeline
+ * Merged: swarm_plan + swarm_spec
  */
 export const swarmPlanTool = [
   "swarm_plan",
   {
     title: "Swarm Plan",
-    description: "Implementation plan management. Actions: create, add, next, start, step, complete, prompt, export, status, list, ready",
+    description: "Implementation plans & specification pipeline. Actions: create, add, next, start, step, complete, prompt, export, status, list, ready, spec_start, spec_phase, spec_complete, spec_get, spec_list, spec_export",
     inputSchema: z.object({
-      action: z.enum(["create", "add", "next", "start", "step", "complete", "prompt", "export", "status", "list", "ready"]).describe("Action to perform"),
+      action: z.enum(["create", "add", "next", "start", "step", "complete", "prompt", "export", "status", "list", "ready", "spec_start", "spec_phase", "spec_complete", "spec_get", "spec_list", "spec_export"]).describe("Action to perform"),
       repoPath: z.string().optional(),
       name: z.string().optional().describe("Plan name (for create)"),
       goal: z.string().optional().describe("Goal (for create)"),
@@ -117,8 +144,8 @@ export const swarmPlanTool = [
       createdBy: z.string().optional().describe("Created by (for create)"),
       planId: z.string().optional().describe("Plan ID"),
       taskId: z.string().optional().describe("Task ID"),
-      title: z.string().optional().describe("Task title (for add)"),
-      description: z.string().optional().describe("Task description (for add)"),
+      title: z.string().optional().describe("Task title (for add, spec_start)"),
+      description: z.string().optional().describe("Task description (for add, spec_start)"),
       files: z.array(z.string()).optional().describe("Files (for add)"),
       testCode: z.string().optional().describe("Test code (for add)"),
       implementationCode: z.string().optional().describe("Implementation code (for add)"),
@@ -130,7 +157,13 @@ export const swarmPlanTool = [
       reviewResult: z.string().optional().describe("Review result (for complete)"),
       contextFiles: z.array(z.string()).optional().describe("Context files (for prompt)"),
       executionMode: z.string().optional().describe("Execution mode (for ready)"),
-      statusFilter: z.string().optional().describe("Status filter (for list)"),
+      statusFilter: z.string().optional().describe("Status filter (for list, spec_list)"),
+      // spec params
+      pipelineId: z.string().optional().describe("Pipeline ID (for spec_*)"),
+      maxIterations: z.number().optional().describe("Max iterations (for spec_start)"),
+      role: z.string().optional().describe("Role (for spec_phase, spec_complete)"),
+      output: z.string().optional().describe("Output (for spec_complete)"),
+      commitMode: z.enum(["none", "local", "push"]).optional().default("push"),
     }).strict(),
     outputSchema: z.any(),
   },
@@ -213,87 +246,8 @@ export const swarmPlanTool = [
           executionMode: input.executionMode,
           repoPath: input.repoPath,
         }));
-      default:
-        throw new Error(`Unknown action: ${input.action}`);
-    }
-  },
-] as const;
-
-// ============ SMART TOOLS 15-27 ============
-
-/**
- * 15. swarm_briefing - Briefing management
- */
-export const swarmBriefingTool = [
-  "swarm_briefing",
-  {
-    title: "Swarm Briefing",
-    description: "Agent briefing management. Actions: save, load",
-    inputSchema: z.object({
-      action: z.enum(["save", "load"]).describe("Action to perform"),
-      repoPath: z.string().optional(),
-      taskId: z.string().optional().describe("Task ID"),
-      agent: z.string().optional().describe("Agent name"),
-      filesWorkedOn: z.array(z.string()).optional().describe("Files worked on (for save)"),
-      currentState: z.string().optional().describe("Current state (for save)"),
-      nextSteps: z.array(z.string()).optional().describe("Next steps (for save)"),
-      blockers: z.array(z.string()).optional().describe("Blockers (for save)"),
-      notes: z.string().optional().describe("Notes (for save)"),
-      commitMode: z.enum(["none", "local", "push"]).optional().default("push"),
-    }).strict(),
-    outputSchema: z.any(),
-  },
-  async (input: any) => {
-    switch (input.action) {
-      case "save":
-        return wrapResult(await saveBriefing({
-          repoPath: input.repoPath,
-          taskId: input.taskId,
-          agent: input.agent,
-          filesWorkedOn: input.filesWorkedOn || [],
-          currentState: input.currentState,
-          nextSteps: input.nextSteps || [],
-          blockers: input.blockers,
-          notes: input.notes,
-          commitMode: input.commitMode || "push",
-        }));
-      case "load":
-        return wrapResult(await loadBriefing({
-          repoPath: input.repoPath,
-          taskId: input.taskId,
-          agent: input.agent,
-        }));
-      default:
-        throw new Error(`Unknown action: ${input.action}`);
-    }
-  },
-] as const;
-
-/**
- * 25. swarm_spec - Specification pipeline
- */
-export const swarmSpecTool = [
-  "swarm_spec",
-  {
-    title: "Swarm Spec",
-    description: "Specification pipeline. Actions: start, phase, complete, get, list, export",
-    inputSchema: z.object({
-      action: z.enum(["start", "phase", "complete", "get", "list", "export"]).describe("Action to perform"),
-      repoPath: z.string().optional(),
-      title: z.string().optional().describe("Title (for start)"),
-      description: z.string().optional().describe("Description (for start)"),
-      maxIterations: z.number().optional().describe("Max iterations (for start)"),
-      pipelineId: z.string().optional().describe("Pipeline ID"),
-      role: z.string().optional().describe("Role (for phase, complete)"),
-      output: z.string().optional().describe("Output (for complete)"),
-      status: z.string().optional().describe("Status filter (for list)"),
-      commitMode: z.enum(["none", "local", "push"]).optional().default("push"),
-    }).strict(),
-    outputSchema: z.any(),
-  },
-  async (input: any) => {
-    switch (input.action) {
-      case "start":
+      // --- Spec pipeline actions ---
+      case "spec_start":
         return wrapResult(await startSpecPipeline({
           repoPath: input.repoPath,
           title: input.title,
@@ -301,14 +255,14 @@ export const swarmSpecTool = [
           maxIterations: input.maxIterations,
           commitMode: input.commitMode || "push",
         }));
-      case "phase":
+      case "spec_phase":
         return wrapResult(await startSpecPhase({
           repoPath: input.repoPath,
           pipelineId: input.pipelineId,
           role: input.role,
           commitMode: input.commitMode || "push",
         }));
-      case "complete":
+      case "spec_complete":
         return wrapResult(await completeSpecPhase({
           repoPath: input.repoPath,
           pipelineId: input.pipelineId,
@@ -316,17 +270,17 @@ export const swarmSpecTool = [
           output: input.output,
           commitMode: input.commitMode || "push",
         }));
-      case "get":
+      case "spec_get":
         return wrapResult(await getSpecPipeline({
           repoPath: input.repoPath,
           pipelineId: input.pipelineId,
         }));
-      case "list":
+      case "spec_list":
         return wrapResult(await listSpecPipelines({
           repoPath: input.repoPath,
-          status: input.status,
+          status: input.statusFilter,
         }));
-      case "export":
+      case "spec_export":
         return wrapResult(await exportSpecAsMarkdown({
           repoPath: input.repoPath,
           pipelineId: input.pipelineId,
@@ -337,8 +291,3 @@ export const swarmSpecTool = [
     }
   },
 ] as const;
-
-/**
- * 26. swarm_qa - QA loop management
- */
-
