@@ -95,7 +95,24 @@ function logError(message: string): void {
     process.stderr.write(`[mcp-swarm-remote] ERROR: ${message}\n`);
 }
 
-// Check if companion is running
+// Check if companion's bridge is actually connected
+async function isBridgeConnected(): Promise<boolean> {
+    try {
+        const response = await fetch("http://localhost:37373/health", {
+            method: "GET",
+            signal: AbortSignal.timeout(2000),
+        });
+        if (!response.ok) return false;
+        const data = await response.json() as Record<string, unknown>;
+        // Check if bridge is connected in health response
+        const bridge = data.bridge as Record<string, unknown> | undefined;
+        return !!(data.bridgeConnected || (bridge && bridge.connected));
+    } catch {
+        return false;
+    }
+}
+
+// Check if companion is running (basic health check)
 async function isCompanionRunning(): Promise<boolean> {
     try {
         const response = await fetch("http://localhost:37373/health", {
@@ -136,7 +153,31 @@ async function startCompanion(): Promise<void> {
     }
 }
 
-// Ensure companion is running
+// Kill existing companion to allow restart with correct env
+async function killCompanion(): Promise<void> {
+    try {
+        await fetch("http://localhost:37373/shutdown", {
+            method: "POST",
+            signal: AbortSignal.timeout(2000),
+        });
+        // Wait for it to die
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        log("Killed existing companion for restart");
+    } catch {
+        // Try force kill via process
+        try {
+            const { execSync } = await import("child_process");
+            if (process.platform === "win32") {
+                execSync('taskkill /F /IM node.exe /FI "WINDOWTITLE eq mcp-swarm-companion" 2>nul', { stdio: "ignore" });
+            }
+        } catch {
+            // Ignore - companion may have already stopped
+        }
+        log("Force-killed existing companion");
+    }
+}
+
+// Ensure companion is running WITH bridge connected
 async function ensureCompanion(): Promise<void> {
     if (noCompanion) {
         log("Companion auto-start disabled");
@@ -145,11 +186,21 @@ async function ensureCompanion(): Promise<void> {
 
     const running = await isCompanionRunning();
     if (running) {
-        log("Companion daemon already running");
-        return;
+        // Check if bridge is actually connected
+        const bridgeOk = await isBridgeConnected();
+        if (bridgeOk) {
+            log("Companion daemon already running (bridge connected ✅)");
+            return;
+        }
+        // Companion running but bridge not connected — restart with correct env
+        log("Companion running but bridge NOT connected — restarting with MCP_SERVER_URL...");
+        await killCompanion();
+        // Wait and verify it's dead
+        await new Promise(resolve => setTimeout(resolve, 1000));
+    } else {
+        log("Companion daemon not running, starting...");
     }
 
-    log("Companion daemon not running, starting...");
     await startCompanion();
 }
 
