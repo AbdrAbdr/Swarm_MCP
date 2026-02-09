@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.0.6] - 2026-02-09
+## [1.0.7] - 2026-02-09
 
 ### 🌉 Full Bridge Coverage — All 26 Smart Tools via Remote
 

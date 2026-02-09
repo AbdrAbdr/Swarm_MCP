@@ -54,7 +54,23 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Check if version already published
+        id: version-check
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          echo "Local version: $PACKAGE_VERSION"
+          PUBLISHED=$(npm view mcp-swarm version 2>/dev/null || echo "none")
+          echo "Published version: $PUBLISHED"
+          if [ "$PACKAGE_VERSION" = "$PUBLISHED" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "⏭️ Version $PACKAGE_VERSION already published, skipping"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "📦 Will publish version $PACKAGE_VERSION"
+          fi
+
       - name: Publish to npm
+        if: steps.version-check.outputs.skip != 'true'
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
