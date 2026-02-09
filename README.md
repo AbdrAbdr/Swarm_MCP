@@ -9,9 +9,9 @@
   <img src="./assets/banner.png" alt="MCP Swarm Banner" width="800" />
 </p>
 
-# 🐝 MCP Swarm v1.0.2 — Universal AI Agent Coordination Platform
+# 🐝 MCP Swarm v1.0.4 — Universal AI Agent Coordination Platform
 
-> 🧠 **v1.0.2 — Tool Consolidation:** 54 → **26 Smart Tools** (zero feature loss). 21 AI models in MoE Router. SONA Self-Learning with EWC++. Update: `npm install -g mcp-swarm@latest`
+> 🧠 **v1.0.4 — Tool Consolidation & Stability:** 54 → **26 Smart Tools** (zero feature loss). Fixed MCP protocol compliance (jsonrpc 2.0). 21 AI models in MoE Router. Update: `npm install -g mcp-swarm@latest`
 
 **MCP Swarm** is a global "nervous system" for your AI assistants. It turns separate agents (Claude, Cursor, Windsurf, OpenCode) into a coordinated team that can work on massive projects without conflicts or context loss.
 

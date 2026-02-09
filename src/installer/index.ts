@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * MCP Swarm Installer v0.9.11
+ * MCP Swarm Installer v1.0.4
  * 
  * Smart installer that:
  * - Detects existing IDE configs
@@ -83,7 +83,7 @@ function getIDEConfigs(): IDEInfo[] {
     const home = os.homedir();
     const osType = getOS();
     const configs: IDEInfo[] = [];
-    
+
     // Helper to read and parse config
     const readConfig = (filePath: string): Record<string, unknown> | null => {
         try {
@@ -96,14 +96,14 @@ function getIDEConfigs(): IDEInfo[] {
         }
         return null;
     };
-    
+
     // Helper to check if mcp-swarm exists
     const hasMcpSwarm = (config: Record<string, unknown> | null, key: string): boolean => {
         if (!config) return false;
         const servers = config[key] as Record<string, unknown> | undefined;
         return servers ? "mcp-swarm" in servers : false;
     };
-    
+
     // Claude Desktop
     let claudePath: string;
     if (osType === "windows") {
@@ -122,7 +122,7 @@ function getIDEConfigs(): IDEInfo[] {
         hasMcpSwarm: hasMcpSwarm(claudeConfig, "mcpServers"),
         mcpServersKey: "mcpServers",
     });
-    
+
     // Cursor
     const cursorPath = path.join(home, ".cursor", "mcp.json");
     const cursorConfig = readConfig(cursorPath);
@@ -134,7 +134,7 @@ function getIDEConfigs(): IDEInfo[] {
         hasMcpSwarm: hasMcpSwarm(cursorConfig, "mcpServers"),
         mcpServersKey: "mcpServers",
     });
-    
+
     // Windsurf
     const windsurfPath = path.join(home, ".codeium", "windsurf", "mcp_config.json");
     const windsurfConfig = readConfig(windsurfPath);
@@ -146,7 +146,7 @@ function getIDEConfigs(): IDEInfo[] {
         hasMcpSwarm: hasMcpSwarm(windsurfConfig, "mcpServers"),
         mcpServersKey: "mcpServers",
     });
-    
+
     // OpenCode
     const opencodePath = path.join(home, ".opencode", "config.json");
     const opencodeConfig = readConfig(opencodePath);
@@ -158,7 +158,7 @@ function getIDEConfigs(): IDEInfo[] {
         hasMcpSwarm: hasMcpSwarm(opencodeConfig, "mcpServers"),
         mcpServersKey: "mcpServers",
     });
-    
+
     // VS Code (uses "servers" instead of "mcpServers")
     const vscodePath = path.join(home, ".vscode", "mcp.json");
     const vscodeConfig = readConfig(vscodePath);
@@ -170,7 +170,7 @@ function getIDEConfigs(): IDEInfo[] {
         hasMcpSwarm: hasMcpSwarm(vscodeConfig, "servers"),
         mcpServersKey: "servers",
     });
-    
+
     return configs;
 }
 
@@ -216,11 +216,11 @@ function mergeConfig(
 ): Record<string, unknown> {
     const base = existing ? { ...existing } : {};
     const servers = (base[serversKey] as Record<string, unknown>) || {};
-    
+
     // Add or update mcp-swarm
     servers["mcp-swarm"] = mcpSwarmConfig;
     base[serversKey] = servers;
-    
+
     return base;
 }
 
@@ -296,7 +296,7 @@ async function main(): Promise<void> {
 ${c.bright}${c.magenta}
 ╔═══════════════════════════════════════════════════════════╗
 ║                                                           ║
-║   🐝 MCP Swarm Installer v0.9.11                         ║
+║   🐝 MCP Swarm Installer v1.0.4                         ║
 ║                                                           ║
 ║   Universal AI Agent Coordination Platform                ║
 ║                                                           ║
@@ -305,20 +305,20 @@ ${c.reset}`);
 
     // Step 1: Detect
     logHeader("Step 1: Detecting Environment");
-    
+
     const osType = getOS();
     logOk(`OS: ${osType.charAt(0).toUpperCase() + osType.slice(1)}`);
-    
+
     const ideConfigs = getIDEConfigs();
     const existingIDEs = ideConfigs.filter(i => i.exists);
     const withMcpSwarm = ideConfigs.filter(i => i.hasMcpSwarm);
-    
+
     log("");
     log(`${c.bright}Detected IDE Configs:${c.reset}`);
     for (const ide of ideConfigs) {
         const serverCount = countServers(ide.currentConfig, ide.mcpServersKey);
         const serverNames = getServerNames(ide.currentConfig, ide.mcpServersKey);
-        
+
         if (ide.exists) {
             if (ide.hasMcpSwarm) {
                 logWarn(`${ide.name}: ${c.yellow}mcp-swarm already installed${c.reset} (${serverCount} servers)`);
@@ -375,16 +375,16 @@ ${c.reset}`);
 
         // Step 4: Show merged configs
         logHeader("Step 4: Configuration Preview");
-        
+
         const targetIDEs = existingIDEs.length > 0 ? existingIDEs : ideConfigs.slice(0, 3);
-        
+
         for (const ide of targetIDEs) {
             const merged = mergeConfig(ide.currentConfig, mcpSwarmConfig, ide.mcpServersKey);
             const serverCount = countServers(merged, ide.mcpServersKey);
-            
+
             log(`${c.bright}${ide.name}${c.reset} (${serverCount} servers after install):`);
             log(`${c.dim}${ide.configPath}${c.reset}`);
-            
+
             if (ide.hasMcpSwarm) {
                 logWarn("Will UPDATE existing mcp-swarm config");
             } else if (ide.exists && countServers(ide.currentConfig, ide.mcpServersKey) > 0) {
@@ -404,25 +404,25 @@ ${c.reset}`);
         // Step 5: Auto-install or manual
         if (autoInstall || (!nonInteractive && rl)) {
             logHeader("Step 5: Install");
-            
+
             let doInstall = autoInstall;
-            
+
             if (!autoInstall && rl) {
                 const answer = await ask(rl, "Auto-install to detected IDEs? [y/N]: ");
                 doInstall = answer.toLowerCase() === "y" || answer.toLowerCase() === "yes";
             }
-            
+
             if (doInstall) {
                 for (const ide of existingIDEs) {
                     const merged = mergeConfig(ide.currentConfig, mcpSwarmConfig, ide.mcpServersKey);
-                    
+
                     if (writeConfig(ide.configPath, merged)) {
                         logOk(`${ide.name}: Updated successfully`);
                     } else {
                         logErr(`${ide.name}: Failed to write`);
                     }
                 }
-                
+
                 // Create for IDEs that don't exist yet
                 if (existingIDEs.length === 0) {
                     const claude = ideConfigs.find(i => i.name === "Claude Desktop");

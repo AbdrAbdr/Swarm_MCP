@@ -128,7 +128,7 @@ export default {
         if (url.pathname === "/" || url.pathname === "") {
             return Response.json({
                 name: "MCP Swarm Server",
-                version: "0.9.11",
+                version: "1.0.4",
                 transport: "Streamable HTTP (MCP 2025-03-26)",
                 status: "running",
                 endpoints: {
@@ -257,7 +257,7 @@ async function handleMcpPost(
                 },
                 serverInfo: {
                     name: "mcp-swarm",
-                    version: "0.9.11",
+                    version: "1.0.4",
                 },
             };
 
