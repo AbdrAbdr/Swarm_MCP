@@ -1,0 +1,6 @@
+dist
+node_modules
+dashboard
+cloudflare
+-p
+*.md

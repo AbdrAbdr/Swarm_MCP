@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.2] - 2026-02-09
+
+### 🏗️ Code Quality & Security
+
+#### Added
+
+- **ESLint + Prettier** — Full linting and formatting setup with `typescript-eslint`. New npm scripts: `lint`, `lint:fix`, `format`, `format:check`.
+- **fs-sandbox** — File system sandbox module (`src/fsSandbox.ts`) restricts agent file operations to the project boundary, preventing path-traversal attacks.
+
+#### Changed
+
+- **Dashboard refactoring** — Extracted 133-line inline HTML from `companion.ts` into dedicated `dashboard.ts` module. Companion is now 700 lines (was 820).
+- **ESLint config** — Flat config (`eslint.config.js`) with TypeScript support, ignoring `dist/`, `node_modules/`, `dashboard/`, `cloudflare/`.
+- **Prettier config** — `.prettierrc` with 120-char line width, double quotes, trailing commas, LF line endings.
+
+---
+
 ## [1.1.1] - 2026-02-09
 
 ### 🔭 Observability & Control

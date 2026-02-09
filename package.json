@@ -1,6 +1,6 @@
 {
   "name": "mcp-swarm",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "private": false,
   "type": "module",
   "description": "Universal AI agent coordination platform with 26 consolidated smart tools, 21 AI models (Kimi K2.5, GPT-5.3, Opus 4.6), EWC++ self-learning, semantic caching, and Q-Learning routing",
@@ -42,7 +42,11 @@
     "dashboard:install": "cd dashboard && npm install",
     "dashboard": "concurrently \"npm run dashboard:api\" \"npm run dashboard:ui\"",
     "dashboard:build": "cd dashboard && npm run build",
-    "test": "node --enable-source-maps dist/tests/newModules.test.js"
+    "test": "node --enable-source-maps dist/tests/newModules.test.js",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write src/",
+    "format:check": "prettier --check src/"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
@@ -54,6 +58,10 @@
     "@types/node": "^22.10.2",
     "@types/ws": "^8.18.0",
     "concurrently": "^8.2.2",
-    "typescript": "^5.6.3"
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.1",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.54.0"
   }
 }

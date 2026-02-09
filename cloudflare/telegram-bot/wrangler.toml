@@ -27,7 +27,7 @@ compatibility_date = "2024-01-01"
 # ═══════════════════════════════════════════════════════════════════════════
 [vars]
 # URL вашего Hub (задеплойте сначала cloudflare/abdr-hub)
-SWARM_HUB_URL = "wss://abdr-swarm-hub.YOUR-SUBDOMAIN.workers.dev/ws"
+SWARM_HUB_URL = "wss://mcp-swarm-hub.unilife-ch.workers.dev/ws"
 SWARM_PROJECT = "default"
 
 # ═══════════════════════════════════════════════════════════════════════════
