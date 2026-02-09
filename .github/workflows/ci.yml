@@ -36,7 +36,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -58,6 +58,7 @@ jobs:
         id: version-check
         run: |
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          echo "version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
           echo "Local version: $PACKAGE_VERSION"
           PUBLISHED=$(npm view mcp-swarm version 2>/dev/null || echo "none")
           echo "Published version: $PUBLISHED"
@@ -74,3 +75,16 @@ jobs:
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        if: steps.version-check.outputs.skip != 'true'
+        run: |
+          VERSION="v${{ steps.version-check.outputs.version }}"
+          echo "Creating release $VERSION"
+          gh release create "$VERSION" \
+            --title "$VERSION" \
+            --generate-notes \
+            --target main \
+            --latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
