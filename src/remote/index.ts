@@ -111,9 +111,9 @@ async function isCompanionRunning(): Promise<boolean> {
 // Start companion daemon in background
 async function startCompanion(): Promise<void> {
     const companionPath = join(__dirname, "..", "companion.js");
-    
+
     log(`Starting companion daemon: ${companionPath}`);
-    
+
     const child = spawn("node", [companionPath], {
         detached: true,
         stdio: "ignore",
@@ -122,12 +122,12 @@ async function startCompanion(): Promise<void> {
             // SWARM_HUB_URL must be set by user - no default hardcoded URL
         },
     });
-    
+
     child.unref();
-    
+
     // Wait a bit for companion to start
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
     // Verify it started
     if (await isCompanionRunning()) {
         log("Companion daemon started successfully");
@@ -142,13 +142,13 @@ async function ensureCompanion(): Promise<void> {
         log("Companion auto-start disabled");
         return;
     }
-    
+
     const running = await isCompanionRunning();
     if (running) {
         log("Companion daemon already running");
         return;
     }
-    
+
     log("Companion daemon not running, starting...");
     await startCompanion();
 }
@@ -164,23 +164,27 @@ function buildUrl(): string {
 
 // Send JSON-RPC request to remote server
 async function sendRequest(request: unknown): Promise<unknown> {
+    const reqObj = request as { id?: string | number; method?: string };
+    const requestId = reqObj?.id ?? null;
+
     const headers: Record<string, string> = {
         "Content-Type": "application/json",
         "Accept": "application/json, text/event-stream",
         "MCP-Protocol-Version": "2025-03-26",
     };
-    
+
     if (sessionId) {
         headers["Mcp-Session-Id"] = sessionId;
     }
 
     try {
         log(`Sending request: ${JSON.stringify(request)}`);
-        
+
         const response = await fetch(buildUrl(), {
             method: "POST",
             headers,
             body: JSON.stringify(request),
+            signal: AbortSignal.timeout(30000),
         });
 
         // Extract session ID from response headers
@@ -192,16 +196,31 @@ async function sendRequest(request: unknown): Promise<unknown> {
 
         // Handle different response types
         const contentType = response.headers.get("Content-Type") || "";
-        
+
         if (response.status === 202) {
             // Notification acknowledged, no response body
             return null;
         }
 
+        // Check for HTTP errors before parsing
+        if (!response.ok) {
+            const errorText = await response.text().catch(() => "Unknown error");
+            logError(`HTTP ${response.status}: ${errorText.slice(0, 200)}`);
+            return {
+                jsonrpc: "2.0",
+                id: requestId,
+                error: {
+                    code: -32000,
+                    message: `Server error HTTP ${response.status}: ${errorText.slice(0, 200)}`,
+                },
+            };
+        }
+
         if (contentType.includes("application/json")) {
             const result = await response.json();
             log(`Received response: ${JSON.stringify(result)}`);
-            return result;
+            // Ensure jsonrpc field is present
+            return ensureJsonRpc(result, requestId);
         }
 
         if (contentType.includes("text/event-stream")) {
@@ -211,7 +230,8 @@ async function sendRequest(request: unknown): Promise<unknown> {
             for (const line of lines) {
                 if (line.startsWith("data: ")) {
                     try {
-                        return JSON.parse(line.slice(6));
+                        const parsed = JSON.parse(line.slice(6));
+                        return ensureJsonRpc(parsed, requestId);
                     } catch {
                         // Continue to next line
                     }
@@ -222,21 +242,42 @@ async function sendRequest(request: unknown): Promise<unknown> {
         // Fallback: try to parse as JSON
         const text = await response.text();
         try {
-            return JSON.parse(text);
+            const parsed = JSON.parse(text);
+            return ensureJsonRpc(parsed, requestId);
         } catch {
-            return { error: { code: -32000, message: `Unexpected response: ${text}` } };
+            logError(`Non-JSON response: ${text.slice(0, 200)}`);
+            return {
+                jsonrpc: "2.0",
+                id: requestId,
+                error: { code: -32000, message: `Unexpected non-JSON response from server` },
+            };
         }
     } catch (error) {
         logError(`Connection error: ${error instanceof Error ? error.message : String(error)}`);
         return {
             jsonrpc: "2.0",
-            id: null,
+            id: requestId,
             error: {
                 code: -32000,
                 message: `Connection error: ${error instanceof Error ? error.message : String(error)}`,
             },
         };
     }
+}
+
+// Ensure response has jsonrpc: "2.0" field (IDE requirement)
+function ensureJsonRpc(response: unknown, fallbackId: unknown): unknown {
+    if (response && typeof response === "object") {
+        const obj = response as Record<string, unknown>;
+        if (!obj.jsonrpc) {
+            obj.jsonrpc = "2.0";
+        }
+        if (obj.id === undefined && fallbackId !== undefined) {
+            obj.id = fallbackId;
+        }
+        return obj;
+    }
+    return { jsonrpc: "2.0", id: fallbackId, error: { code: -32000, message: "Invalid response format" } };
 }
 
 // Write JSON-RPC response to stdout
@@ -282,7 +323,7 @@ async function main(): Promise<void> {
 
     // Set up stdin for reading
     process.stdin.setEncoding("utf8");
-    
+
     let buffer = "";
     let isProcessing = false;
     const pendingLines: string[] = [];
@@ -290,18 +331,18 @@ async function main(): Promise<void> {
     // Process lines sequentially to maintain order
     async function processNext(): Promise<void> {
         if (isProcessing || pendingLines.length === 0) return;
-        
+
         isProcessing = true;
         const line = pendingLines.shift()!;
-        
+
         try {
             await processLine(line);
         } catch (error) {
             logError(`Error processing line: ${error}`);
         }
-        
+
         isProcessing = false;
-        
+
         // Process next line if available
         if (pendingLines.length > 0) {
             setImmediate(processNext);
@@ -312,20 +353,20 @@ async function main(): Promise<void> {
     process.stdin.on("data", (chunk: string) => {
         log(`Received chunk: ${chunk.length} bytes`);
         buffer += chunk;
-        
+
         // Split by newlines and process complete lines
         const lines = buffer.split("\n");
-        
+
         // Keep the last incomplete line in the buffer
         buffer = lines.pop() || "";
-        
+
         // Queue complete lines for processing
         for (const line of lines) {
             if (line.trim()) {
                 pendingLines.push(line);
             }
         }
-        
+
         // Start processing
         processNext();
     });
@@ -333,13 +374,13 @@ async function main(): Promise<void> {
     // Handle stdin end
     process.stdin.on("end", () => {
         log("stdin ended");
-        
+
         // Process any remaining data in buffer
         if (buffer.trim()) {
             pendingLines.push(buffer);
             processNext();
         }
-        
+
         // Wait for all pending requests to complete
         const checkComplete = setInterval(() => {
             if (pendingLines.length === 0 && !isProcessing) {
@@ -368,7 +409,7 @@ async function main(): Promise<void> {
 
     // Resume stdin (important for piped input on Windows)
     process.stdin.resume();
-    
+
     log("Ready for input");
 }
 
