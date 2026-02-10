@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.6] - 2026-02-10
+
+### What's New
+
+#### 🏗️ Hub Architecture Refactoring
+- **Modular services** — Hub refactored from 846-line monolith into clean modules: `types.ts`, `services/events.ts`, `services/tasks.ts`, `services/agents.ts`
+- **Thin entrypoint** — `index.ts` now delegates to services, making the codebase maintainable
+- **Legacy cleanup** — Removed `smartTools.legacy.ts` (144KB dead code)
+
+#### 📊 Dashboard 2.0
+- **Chart.js graphs** — Bar chart for tasks over 24h, doughnut chart for agent activity
+- **Pulse Timeline** — Live heartbeat visualization of all connected agents
+- **WebSocket updates** — Replaced `meta http-equiv="refresh"` with WebSocket for real-time updates
+- **Global Swarm Control** — Stop/Resume entire swarm directly from dashboard via Hub API
+
+#### 🔒 API Security
+- **X-Swarm-Secret middleware** — All `/api/*` endpoints validate `X-Swarm-Secret` header when `SWARM_AUTH_TOKEN` is set
+- **Rate Limiting** — Built-in 100 requests/IP/minute limiter with `429 Too Many Requests` response
+
+#### 🧪 E2E Testing
+- **Full lifecycle test** — Hub → Task → Claim → Release → Lock → Unlock → Stop → Resume
+- **Rate limit test** — Validates the 429 protection works correctly
+- **Vitest-based** — Consistent with existing test suite
+
+#### 🦙 Optional Ollama Integration
+- **Local LLM support** — `swarm_booster` now supports `ollama_generate` task type for complex operations
+- **Cost savings** — Use local Ollama models (codellama:7b) instead of expensive API calls
+- **Fully optional** — Without `ollamaUrl` in config, everything works exactly as before
+- **Smart detection** — `can_boost` detects refactoring/optimization tasks when Ollama is available
+
+---
+
 ## [1.1.5] - 2026-02-09
 
 ### What's New

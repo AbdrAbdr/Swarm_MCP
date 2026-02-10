@@ -1,7 +1,7 @@
 /**
  * Agent Booster — Fast Local Execution for Simple Tasks
  * 
- * MCP Swarm v0.9.6
+ * MCP Swarm v1.1.6
  * 
  * Executes trivial tasks locally without calling LLM APIs:
  * - Rename variables/functions
@@ -48,6 +48,7 @@ export type BoosterTaskType =
   | "remove_unused_imports" // Remove unused imports
   | "add_export"            // Add export to a function/class
   | "wrap_try_catch"        // Wrap code in try-catch
+  | "ollama_generate"       // [Optional] Use local Ollama LLM for complex tasks
   | "extract_constant"      // Extract magic number to constant
   | "inline_variable";      // Inline a variable
 
@@ -67,6 +68,8 @@ export interface BoosterTask {
   value?: string | boolean; // For toggle_flag, add_comment
   comment?: string;         // For add_comment
   scope?: "file" | "function" | "block"; // For operations scope
+  prompt?: string;          // For ollama_generate
+  model?: string;           // For ollama_generate (default: codellama:7b)
 }
 
 /**
@@ -112,6 +115,8 @@ export interface BoosterConfig {
   backupBeforeChange: boolean;
   dryRun: boolean;          // Preview changes without applying
   estimatedLLMCostPerTask: number; // For cost savings calculation
+  ollamaUrl?: string;       // Optional: Ollama URL (e.g. http://localhost:11434)
+  ollamaModel?: string;     // Optional: default model (e.g. codellama:7b)
 }
 
 // ============ CONSTANTS ============
@@ -128,6 +133,8 @@ const DEFAULT_CONFIG: BoosterConfig = {
   backupBeforeChange: true,
   dryRun: false,
   estimatedLLMCostPerTask: 0.01, // $0.01 per simple task
+  ollamaUrl: undefined,     // Not set by default — fully optional
+  ollamaModel: "codellama:7b",
 };
 
 // Estimated LLM time for comparison (ms)
@@ -144,7 +151,7 @@ async function getBoosterDir(repoRoot: string): Promise<string> {
 async function loadStats(repoRoot: string): Promise<BoosterStats> {
   const dir = await getBoosterDir(repoRoot);
   const statsPath = path.join(dir, STATS_FILE);
-  
+
   try {
     const raw = await fs.readFile(statsPath, "utf8");
     return JSON.parse(raw);
@@ -172,7 +179,7 @@ async function saveStats(repoRoot: string, stats: BoosterStats): Promise<void> {
 async function loadConfig(repoRoot: string): Promise<BoosterConfig> {
   const dir = await getBoosterDir(repoRoot);
   const configPath = path.join(dir, CONFIG_FILE);
-  
+
   try {
     const raw = await fs.readFile(configPath, "utf8");
     return { ...DEFAULT_CONFIG, ...JSON.parse(raw) };
@@ -193,18 +200,18 @@ async function recordHistory(
 ): Promise<void> {
   const dir = await getBoosterDir(repoRoot);
   const historyPath = path.join(dir, HISTORY_FILE);
-  
+
   let history: BoosterResult[] = [];
   try {
     const raw = await fs.readFile(historyPath, "utf8");
     history = JSON.parse(raw);
-  } catch {}
-  
+  } catch { }
+
   history.push(result);
   if (history.length > 500) {
     history = history.slice(-500);
   }
-  
+
   await fs.writeFile(historyPath, JSON.stringify(history, null, 2), "utf8");
 }
 
@@ -216,7 +223,7 @@ function generateDiff(original: string, modified: string, maxLines = 10): string
   const origLines = original.split("\n");
   const modLines = modified.split("\n");
   const diffs: string[] = [];
-  
+
   for (let i = 0; i < Math.max(origLines.length, modLines.length); i++) {
     if (origLines[i] !== modLines[i]) {
       if (origLines[i]) diffs.push(`- ${i + 1}: ${origLines[i].substring(0, 80)}`);
@@ -224,7 +231,7 @@ function generateDiff(original: string, modified: string, maxLines = 10): string
     }
     if (diffs.length >= maxLines * 2) break;
   }
-  
+
   return diffs.slice(0, maxLines).join("\n");
 }
 
@@ -240,14 +247,14 @@ async function executeRenameVariable(
   if (!task.oldName || !task.newName) {
     throw new Error("oldName and newName are required for rename_variable");
   }
-  
+
   const lines = content.split("\n");
   const affectedLines: number[] = [];
   let changes = 0;
-  
+
   // Create regex that matches word boundaries
   const regex = new RegExp(`\\b${escapeRegex(task.oldName)}\\b`, "g");
-  
+
   const newLines = lines.map((line, i) => {
     const matches = line.match(regex);
     if (matches) {
@@ -257,7 +264,7 @@ async function executeRenameVariable(
     }
     return line;
   });
-  
+
   return {
     content: newLines.join("\n"),
     changes,
@@ -275,18 +282,18 @@ async function executeFixTypo(
   if (!task.searchText || !task.replaceText) {
     throw new Error("searchText and replaceText are required for fix_typo");
   }
-  
+
   const lines = content.split("\n");
   const affectedLines: number[] = [];
   let changes = 0;
-  
+
   // Only replace in strings and comments
   const stringOrCommentRegex = /(["'`].*?["'`]|\/\/.*$|\/\*[\s\S]*?\*\/)/g;
-  
+
   const newLines = lines.map((line, i) => {
     let modified = line;
     let lineChanged = false;
-    
+
     modified = line.replace(stringOrCommentRegex, (match) => {
       if (match.includes(task.searchText!)) {
         lineChanged = true;
@@ -295,14 +302,14 @@ async function executeFixTypo(
       }
       return match;
     });
-    
+
     if (lineChanged) {
       affectedLines.push(i + 1);
     }
-    
+
     return modified;
   });
-  
+
   return {
     content: newLines.join("\n"),
     changes,
@@ -320,13 +327,13 @@ async function executeFindReplace(
   if (!task.searchText || task.replaceText === undefined) {
     throw new Error("searchText and replaceText are required for find_replace");
   }
-  
+
   const lines = content.split("\n");
   const affectedLines: number[] = [];
   let changes = 0;
-  
+
   const regex = new RegExp(escapeRegex(task.searchText), "g");
-  
+
   const newLines = lines.map((line, i) => {
     const matches = line.match(regex);
     if (matches) {
@@ -336,7 +343,7 @@ async function executeFindReplace(
     }
     return line;
   });
-  
+
   return {
     content: newLines.join("\n"),
     changes,
@@ -355,13 +362,13 @@ async function executeAddConsoleLog(
   const lineNum = task.lineNumber || 1;
   const varName = task.variableName || "debug";
   const logStatement = `console.log("[DEBUG] ${varName}:", ${varName});`;
-  
+
   // Find indentation of the target line
   const targetLine = lines[lineNum - 1] || "";
   const indent = targetLine.match(/^(\s*)/)?.[1] || "";
-  
+
   lines.splice(lineNum, 0, indent + logStatement);
-  
+
   return {
     content: lines.join("\n"),
     changes: 1,
@@ -379,9 +386,9 @@ async function executeRemoveConsoleLog(
   const lines = content.split("\n");
   const affectedLines: number[] = [];
   let changes = 0;
-  
+
   const consoleLogRegex = /^\s*console\.(log|debug|info|warn|error)\s*\([^)]*\);?\s*$/;
-  
+
   const newLines = lines.filter((line, i) => {
     if (consoleLogRegex.test(line)) {
       affectedLines.push(i + 1);
@@ -390,7 +397,7 @@ async function executeRemoveConsoleLog(
     }
     return true;
   });
-  
+
   return {
     content: newLines.join("\n"),
     changes,
@@ -408,17 +415,17 @@ async function executeToggleFlag(
   if (!task.variableName) {
     throw new Error("variableName is required for toggle_flag");
   }
-  
+
   const lines = content.split("\n");
   const affectedLines: number[] = [];
   let changes = 0;
-  
+
   // Match patterns like: const FLAG = true; or let flag = false;
   const flagRegex = new RegExp(
     `((?:const|let|var)\\s+${escapeRegex(task.variableName)}\\s*=\\s*)(true|false)`,
     "g"
   );
-  
+
   const newLines = lines.map((line, i) => {
     if (flagRegex.test(line)) {
       affectedLines.push(i + 1);
@@ -430,7 +437,7 @@ async function executeToggleFlag(
     }
     return line;
   });
-  
+
   return {
     content: newLines.join("\n"),
     changes,
@@ -448,17 +455,17 @@ async function executeUpdateVersion(
   if (!task.searchText || !task.replaceText) {
     throw new Error("searchText (old version) and replaceText (new version) are required");
   }
-  
+
   const lines = content.split("\n");
   const affectedLines: number[] = [];
   let changes = 0;
-  
+
   // Match version patterns
   const versionRegex = new RegExp(
     `(["']?version["']?\\s*[:=]\\s*["']?)${escapeRegex(task.searchText)}(["']?)`,
     "gi"
   );
-  
+
   const newLines = lines.map((line, i) => {
     if (versionRegex.test(line)) {
       affectedLines.push(i + 1);
@@ -467,7 +474,7 @@ async function executeUpdateVersion(
     }
     return line;
   });
-  
+
   return {
     content: newLines.join("\n"),
     changes,
@@ -485,17 +492,17 @@ async function executeUpdateImport(
   if (!task.searchText || !task.replaceText) {
     throw new Error("searchText (old path) and replaceText (new path) are required");
   }
-  
+
   const lines = content.split("\n");
   const affectedLines: number[] = [];
   let changes = 0;
-  
+
   // Match import/require statements
   const importRegex = new RegExp(
     `((?:import|from|require)\\s*\\(?\\s*["'])${escapeRegex(task.searchText)}(["']\\)?)`,
     "g"
   );
-  
+
   const newLines = lines.map((line, i) => {
     if (importRegex.test(line)) {
       affectedLines.push(i + 1);
@@ -504,7 +511,7 @@ async function executeUpdateImport(
     }
     return line;
   });
-  
+
   return {
     content: newLines.join("\n"),
     changes,
@@ -522,18 +529,18 @@ async function executeAddComment(
   if (!task.comment || !task.lineNumber) {
     throw new Error("comment and lineNumber are required for add_comment");
   }
-  
+
   const lines = content.split("\n");
   const lineNum = task.lineNumber;
-  
+
   // Get indentation from target line
   const targetLine = lines[lineNum - 1] || "";
   const indent = targetLine.match(/^(\s*)/)?.[1] || "";
-  
+
   // Determine comment style based on file extension
   const ext = path.extname(task.filePath).toLowerCase();
   let commentLine: string;
-  
+
   if ([".py", ".rb", ".sh", ".yaml", ".yml"].includes(ext)) {
     commentLine = `${indent}# ${task.comment}`;
   } else if ([".html", ".xml", ".svg"].includes(ext)) {
@@ -543,9 +550,9 @@ async function executeAddComment(
   } else {
     commentLine = `${indent}// ${task.comment}`;
   }
-  
+
   lines.splice(lineNum - 1, 0, commentLine);
-  
+
   return {
     content: lines.join("\n"),
     changes: 1,
@@ -563,10 +570,10 @@ async function executeRemoveComment(
   const lines = content.split("\n");
   const affectedLines: number[] = [];
   let changes = 0;
-  
+
   // Match single-line comments
   const commentRegex = /^\s*(\/\/|#|--)\s*.*/;
-  
+
   const newLines = lines.filter((line, i) => {
     if (commentRegex.test(line)) {
       // If searchText provided, only remove matching comments
@@ -579,7 +586,7 @@ async function executeRemoveComment(
     }
     return true;
   });
-  
+
   return {
     content: newLines.join("\n"),
     changes,
@@ -597,11 +604,11 @@ async function executeFormatJson(
   try {
     const parsed = JSON.parse(content);
     const formatted = JSON.stringify(parsed, null, 2);
-    
+
     if (formatted === content) {
       return { content, changes: 0, lines: [] };
     }
-    
+
     return {
       content: formatted,
       changes: 1,
@@ -623,12 +630,12 @@ async function executeSortImports(
   const importLines: { index: number; line: string }[] = [];
   let inImportBlock = false;
   let firstImportIndex = -1;
-  
+
   // Find all import lines
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const isImport = /^import\s/.test(line) || /^import\s*{/.test(line);
-    
+
     if (isImport) {
       if (!inImportBlock) {
         firstImportIndex = i;
@@ -639,11 +646,11 @@ async function executeSortImports(
       break;
     }
   }
-  
+
   if (importLines.length <= 1) {
     return { content, changes: 0, lines: [] };
   }
-  
+
   // Sort imports
   const sortedImports = [...importLines].sort((a, b) => {
     // Extract the module path for comparison
@@ -651,19 +658,19 @@ async function executeSortImports(
     const pathB = b.line.match(/from\s+["'](.+?)["']/)?.[1] || b.line;
     return pathA.localeCompare(pathB);
   });
-  
+
   // Check if already sorted
   const alreadySorted = importLines.every((imp, i) => imp.line === sortedImports[i].line);
   if (alreadySorted) {
     return { content, changes: 0, lines: [] };
   }
-  
+
   // Replace imports with sorted version
   const newLines = [...lines];
   importLines.forEach((imp, i) => {
     newLines[imp.index] = sortedImports[i].line;
   });
-  
+
   return {
     content: newLines.join("\n"),
     changes: importLines.length,
@@ -681,17 +688,17 @@ async function executeAddExport(
   if (!task.variableName) {
     throw new Error("variableName (function/class name) is required for add_export");
   }
-  
+
   const lines = content.split("\n");
   const affectedLines: number[] = [];
   let changes = 0;
-  
+
   // Match function/class/const declarations
   const declRegex = new RegExp(
     `^(\\s*)(function\\s+${escapeRegex(task.variableName)}|class\\s+${escapeRegex(task.variableName)}|(?:const|let|var)\\s+${escapeRegex(task.variableName)})`,
     ""
   );
-  
+
   const newLines = lines.map((line, i) => {
     const match = line.match(declRegex);
     if (match && !line.trimStart().startsWith("export")) {
@@ -701,7 +708,7 @@ async function executeAddExport(
     }
     return line;
   });
-  
+
   return {
     content: newLines.join("\n"),
     changes,
@@ -719,15 +726,15 @@ async function executeExtractConstant(
   if (!task.searchText || !task.variableName) {
     throw new Error("searchText (value) and variableName (constant name) are required");
   }
-  
+
   const lines = content.split("\n");
   const affectedLines: number[] = [];
   let changes = 0;
-  
+
   // Find first occurrence and its line
   let firstOccurrenceLine = -1;
   const valueRegex = new RegExp(`(?<!\\w)${escapeRegex(task.searchText)}(?!\\w)`, "g");
-  
+
   const newLines = lines.map((line, i) => {
     const matches = line.match(valueRegex);
     if (matches) {
@@ -740,7 +747,7 @@ async function executeExtractConstant(
     }
     return line;
   });
-  
+
   // Add constant declaration at the top (after imports)
   if (changes > 0 && firstOccurrenceLine >= 0) {
     // Find end of imports
@@ -752,17 +759,100 @@ async function executeExtractConstant(
         break;
       }
     }
-    
+
     const constDecl = `const ${task.variableName} = ${task.searchText};`;
     newLines.splice(insertLine, 0, "", constDecl);
     affectedLines.unshift(insertLine + 2);
   }
-  
+
   return {
     content: newLines.join("\n"),
     changes,
     lines: affectedLines,
   };
+}
+
+// ============ OLLAMA INTEGRATION (OPTIONAL) ============
+
+/**
+ * Execute a complex task via local Ollama LLM
+ * Only works if ollamaUrl is set in booster config
+ */
+async function executeOllamaGenerate(
+  content: string,
+  task: BoosterTask,
+  config: BoosterConfig
+): Promise<{ content: string; changes: number; lines: number[] }> {
+  if (!config.ollamaUrl) {
+    throw new Error(
+      "Ollama is not configured. Set ollamaUrl in booster config:\n" +
+      "  swarm_booster({ action: 'set_config', config: { ollamaUrl: 'http://localhost:11434' } })"
+    );
+  }
+
+  const prompt = task.prompt || `Modify this code:\n\n${content}`;
+  const model = task.model || config.ollamaModel || "codellama:7b";
+
+  try {
+    const response = await fetch(`${config.ollamaUrl}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        prompt: `You are a code assistant. Given the following code, apply the requested change and return ONLY the modified code without explanation.\n\nCode:\n\`\`\`\n${content}\n\`\`\`\n\nRequest: ${prompt}\n\nModified code:`,
+        stream: false,
+        options: {
+          temperature: 0.1,
+          num_predict: 4096,
+        },
+      }),
+      signal: AbortSignal.timeout(60_000),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Ollama error (${response.status}): ${err}`);
+    }
+
+    const data = await response.json() as { response: string };
+    let newContent = data.response || "";
+
+    // Clean up ollama response — extract code from markdown blocks if present
+    const codeBlockMatch = newContent.match(/```(?:\w+)?\n([\s\S]*?)```/);
+    if (codeBlockMatch) {
+      newContent = codeBlockMatch[1].trim();
+    }
+
+    if (!newContent || newContent.trim() === content.trim()) {
+      return { content, changes: 0, lines: [] };
+    }
+
+    // Simple diff: count changed lines
+    const oldLines = content.split("\n");
+    const newLines = newContent.split("\n");
+    const changedLines: number[] = [];
+    const maxLen = Math.max(oldLines.length, newLines.length);
+
+    for (let i = 0; i < maxLen; i++) {
+      if ((oldLines[i] || "") !== (newLines[i] || "")) {
+        changedLines.push(i + 1);
+      }
+    }
+
+    return {
+      content: newContent,
+      changes: changedLines.length,
+      lines: changedLines,
+    };
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("Ollama error")) {
+      throw err;
+    }
+    throw new Error(
+      `Cannot connect to Ollama at ${config.ollamaUrl}. ` +
+      `Make sure Ollama is running: ollama serve`
+    );
+  }
 }
 
 // ============ MAIN EXECUTOR ============
@@ -778,7 +868,7 @@ export async function executeTask(input: {
   const startTime = Date.now();
   const repoRoot = await getRepoRoot(input.repoPath);
   const config = await loadConfig(repoRoot);
-  
+
   if (!config.enabled) {
     return {
       success: false,
@@ -791,15 +881,15 @@ export async function executeTask(input: {
       savedCost: 0,
     };
   }
-  
+
   const fullPath = path.isAbsolute(input.task.filePath)
     ? input.task.filePath
     : path.join(repoRoot, input.task.filePath);
-  
+
   try {
     // Read file
     const originalContent = await fs.readFile(fullPath, "utf8");
-    
+
     // Check file size
     if (originalContent.length > config.maxFileSize) {
       return {
@@ -813,10 +903,10 @@ export async function executeTask(input: {
         savedCost: 0,
       };
     }
-    
+
     // Execute the appropriate task
     let result: { content: string; changes: number; lines: number[] };
-    
+
     switch (input.task.type) {
       case "rename_variable":
         result = await executeRenameVariable(originalContent, input.task);
@@ -860,16 +950,19 @@ export async function executeTask(input: {
       case "extract_constant":
         result = await executeExtractConstant(originalContent, input.task);
         break;
+      case "ollama_generate":
+        result = await executeOllamaGenerate(originalContent, input.task, config);
+        break;
       default:
         throw new Error(`Unsupported task type: ${input.task.type}`);
     }
-    
+
     const timeMs = Date.now() - startTime;
     const dryRun = input.dryRun ?? config.dryRun;
-    
+
     // Generate diff
     const diff = generateDiff(originalContent, result.content);
-    
+
     if (result.changes === 0) {
       return {
         success: true,
@@ -882,18 +975,18 @@ export async function executeTask(input: {
         savedCost: config.estimatedLLMCostPerTask,
       };
     }
-    
+
     if (!dryRun) {
       // Backup if configured
       if (config.backupBeforeChange) {
         const backupPath = `${fullPath}.bak`;
         await fs.writeFile(backupPath, originalContent, "utf8");
       }
-      
+
       // Write modified content
       await fs.writeFile(fullPath, result.content, "utf8");
     }
-    
+
     const boosterResult: BoosterResult = {
       success: true,
       taskType: input.task.type,
@@ -907,7 +1000,7 @@ export async function executeTask(input: {
       timeMs,
       savedCost: config.estimatedLLMCostPerTask,
     };
-    
+
     // Update stats
     const stats = await loadStats(repoRoot);
     stats.totalTasks++;
@@ -915,29 +1008,29 @@ export async function executeTask(input: {
     stats.totalChanges += result.changes;
     stats.totalTimeSavedMs += ESTIMATED_LLM_TIME_MS - timeMs;
     stats.totalCostSaved += config.estimatedLLMCostPerTask;
-    
+
     if (!stats.byType[input.task.type]) {
       stats.byType[input.task.type] = { count: 0, successRate: 1, avgTimeMs: 0 };
     }
     const typeStats = stats.byType[input.task.type];
     typeStats.count++;
     typeStats.avgTimeMs = (typeStats.avgTimeMs * (typeStats.count - 1) + timeMs) / typeStats.count;
-    
+
     await saveStats(repoRoot, stats);
     await recordHistory(repoRoot, boosterResult);
-    
+
     return boosterResult;
-    
+
   } catch (error) {
     const timeMs = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : String(error);
-    
+
     // Update failure stats
     const stats = await loadStats(repoRoot);
     stats.totalTasks++;
     stats.failedTasks++;
     await saveStats(repoRoot, stats);
-    
+
     return {
       success: false,
       taskType: input.task.type,
@@ -968,99 +1061,99 @@ export async function canBoost(input: {
   reason: string;
 }> {
   const text = `${input.title || ""} ${input.description}`.toLowerCase();
-  
+
   // Pattern matching for boostable tasks
   const patterns: Array<{
     regex: RegExp;
     type: BoosterTaskType;
     extractParams: (match: RegExpMatchArray, text: string) => Partial<BoosterTask>;
   }> = [
-    {
-      regex: /rename\s+(?:variable|function|const|let|var)?\s*[`"']?(\w+)[`"']?\s+(?:to|->|=>)\s*[`"']?(\w+)[`"']?/i,
-      type: "rename_variable",
-      extractParams: (match) => ({
-        oldName: match[1],
-        newName: match[2],
-      }),
-    },
-    {
-      regex: /fix\s+typo\s*:?\s*[`"']?(.+?)[`"']?\s*(?:->|=>|to)\s*[`"']?(.+?)[`"']?/i,
-      type: "fix_typo",
-      extractParams: (match) => ({
-        searchText: match[1].trim(),
-        replaceText: match[2].trim(),
-      }),
-    },
-    {
-      regex: /replace\s+[`"']?(.+?)[`"']?\s+(?:with|->|=>|to)\s+[`"']?(.+?)[`"']?/i,
-      type: "find_replace",
-      extractParams: (match) => ({
-        searchText: match[1].trim(),
-        replaceText: match[2].trim(),
-      }),
-    },
-    {
-      regex: /add\s+(?:debug\s+)?(?:console\.?)?log(?:ging)?\s+(?:for|to)?\s*[`"']?(\w+)[`"']?/i,
-      type: "add_console_log",
-      extractParams: (match) => ({
-        variableName: match[1],
-      }),
-    },
-    {
-      regex: /remove\s+(?:all\s+)?(?:console\.?)?logs?/i,
-      type: "remove_console_log",
-      extractParams: () => ({}),
-    },
-    {
-      regex: /toggle\s+(?:flag|boolean)?\s*[`"']?(\w+)[`"']?/i,
-      type: "toggle_flag",
-      extractParams: (match) => ({
-        variableName: match[1],
-      }),
-    },
-    {
-      regex: /update\s+version\s+(?:from\s+)?[`"']?([0-9.]+)[`"']?\s+(?:to|->|=>)\s*[`"']?([0-9.]+)[`"']?/i,
-      type: "update_version",
-      extractParams: (match) => ({
-        searchText: match[1],
-        replaceText: match[2],
-      }),
-    },
-    {
-      regex: /update\s+import\s+(?:path\s+)?(?:from\s+)?[`"']?(.+?)[`"']?\s+(?:to|->|=>)\s*[`"']?(.+?)[`"']?/i,
-      type: "update_import",
-      extractParams: (match) => ({
-        searchText: match[1].trim(),
-        replaceText: match[2].trim(),
-      }),
-    },
-    {
-      regex: /format\s+json/i,
-      type: "format_json",
-      extractParams: () => ({}),
-    },
-    {
-      regex: /sort\s+imports?/i,
-      type: "sort_imports",
-      extractParams: () => ({}),
-    },
-    {
-      regex: /add\s+export\s+(?:to\s+)?[`"']?(\w+)[`"']?/i,
-      type: "add_export",
-      extractParams: (match) => ({
-        variableName: match[1],
-      }),
-    },
-    {
-      regex: /extract\s+(?:magic\s+)?(?:number|value)?\s*[`"']?(.+?)[`"']?\s+(?:to|as|into)\s+(?:constant\s+)?[`"']?(\w+)[`"']?/i,
-      type: "extract_constant",
-      extractParams: (match) => ({
-        searchText: match[1].trim(),
-        variableName: match[2],
-      }),
-    },
-  ];
-  
+      {
+        regex: /rename\s+(?:variable|function|const|let|var)?\s*[`"']?(\w+)[`"']?\s+(?:to|->|=>)\s*[`"']?(\w+)[`"']?/i,
+        type: "rename_variable",
+        extractParams: (match) => ({
+          oldName: match[1],
+          newName: match[2],
+        }),
+      },
+      {
+        regex: /fix\s+typo\s*:?\s*[`"']?(.+?)[`"']?\s*(?:->|=>|to)\s*[`"']?(.+?)[`"']?/i,
+        type: "fix_typo",
+        extractParams: (match) => ({
+          searchText: match[1].trim(),
+          replaceText: match[2].trim(),
+        }),
+      },
+      {
+        regex: /replace\s+[`"']?(.+?)[`"']?\s+(?:with|->|=>|to)\s+[`"']?(.+?)[`"']?/i,
+        type: "find_replace",
+        extractParams: (match) => ({
+          searchText: match[1].trim(),
+          replaceText: match[2].trim(),
+        }),
+      },
+      {
+        regex: /add\s+(?:debug\s+)?(?:console\.?)?log(?:ging)?\s+(?:for|to)?\s*[`"']?(\w+)[`"']?/i,
+        type: "add_console_log",
+        extractParams: (match) => ({
+          variableName: match[1],
+        }),
+      },
+      {
+        regex: /remove\s+(?:all\s+)?(?:console\.?)?logs?/i,
+        type: "remove_console_log",
+        extractParams: () => ({}),
+      },
+      {
+        regex: /toggle\s+(?:flag|boolean)?\s*[`"']?(\w+)[`"']?/i,
+        type: "toggle_flag",
+        extractParams: (match) => ({
+          variableName: match[1],
+        }),
+      },
+      {
+        regex: /update\s+version\s+(?:from\s+)?[`"']?([0-9.]+)[`"']?\s+(?:to|->|=>)\s*[`"']?([0-9.]+)[`"']?/i,
+        type: "update_version",
+        extractParams: (match) => ({
+          searchText: match[1],
+          replaceText: match[2],
+        }),
+      },
+      {
+        regex: /update\s+import\s+(?:path\s+)?(?:from\s+)?[`"']?(.+?)[`"']?\s+(?:to|->|=>)\s*[`"']?(.+?)[`"']?/i,
+        type: "update_import",
+        extractParams: (match) => ({
+          searchText: match[1].trim(),
+          replaceText: match[2].trim(),
+        }),
+      },
+      {
+        regex: /format\s+json/i,
+        type: "format_json",
+        extractParams: () => ({}),
+      },
+      {
+        regex: /sort\s+imports?/i,
+        type: "sort_imports",
+        extractParams: () => ({}),
+      },
+      {
+        regex: /add\s+export\s+(?:to\s+)?[`"']?(\w+)[`"']?/i,
+        type: "add_export",
+        extractParams: (match) => ({
+          variableName: match[1],
+        }),
+      },
+      {
+        regex: /extract\s+(?:magic\s+)?(?:number|value)?\s*[`"']?(.+?)[`"']?\s+(?:to|as|into)\s+(?:constant\s+)?[`"']?(\w+)[`"']?/i,
+        type: "extract_constant",
+        extractParams: (match) => ({
+          searchText: match[1].trim(),
+          variableName: match[2],
+        }),
+      },
+    ];
+
   for (const pattern of patterns) {
     const match = text.match(pattern.regex);
     if (match) {
@@ -1073,7 +1166,7 @@ export async function canBoost(input: {
       };
     }
   }
-  
+
   // Simple heuristics for generic detection
   const simplePatterns: Array<{ keywords: string[]; type: BoosterTaskType }> = [
     { keywords: ["rename", "refactor name"], type: "rename_variable" },
@@ -1086,7 +1179,7 @@ export async function canBoost(input: {
     { keywords: ["format json", "prettify json"], type: "format_json" },
     { keywords: ["sort import", "organize import"], type: "sort_imports" },
   ];
-  
+
   for (const pattern of simplePatterns) {
     if (pattern.keywords.some(kw => text.includes(kw))) {
       return {
@@ -1098,13 +1191,35 @@ export async function canBoost(input: {
       };
     }
   }
-  
+
+  // Check if Ollama is available for more complex tasks
+  const repoRoot = await getRepoRoot(input.repoPath);
+  const config = await loadConfig(repoRoot);
+  if (config.ollamaUrl) {
+    // With Ollama, we can handle more complex tasks
+    const complexPatterns = [
+      /refactor/i, /optimize/i, /simplify/i, /generate/i,
+      /explain/i, /document/i, /review/i, /suggest/i,
+    ];
+    if (complexPatterns.some(p => p.test(text))) {
+      return {
+        canBoost: true,
+        taskType: "ollama_generate" as BoosterTaskType,
+        confidence: 0.7,
+        suggestedParams: { prompt: input.description },
+        reason: `Ollama available — can handle complex task via local LLM (${config.ollamaModel || 'codellama:7b'})`,
+      };
+    }
+  }
+
   return {
     canBoost: false,
     taskType: null,
     confidence: 0,
     suggestedParams: {},
-    reason: "Task does not match any boostable pattern",
+    reason: config.ollamaUrl
+      ? "Task does not match any boostable pattern (Ollama available for complex tasks)"
+      : "Task does not match any boostable pattern (tip: set ollamaUrl in config for complex tasks)",
   };
 }
 
@@ -1154,7 +1269,7 @@ export async function getHistory(input: {
   const repoRoot = await getRepoRoot(input.repoPath);
   const dir = await getBoosterDir(repoRoot);
   const historyPath = path.join(dir, HISTORY_FILE);
-  
+
   try {
     const raw = await fs.readFile(historyPath, "utf8");
     const history = JSON.parse(raw) as BoosterResult[];
@@ -1187,6 +1302,7 @@ export function getSupportedTypes(): Array<{
     { type: "sort_imports", description: "Sort imports alphabetically", requiredParams: [] },
     { type: "add_export", description: "Add export to declaration", requiredParams: ["variableName"] },
     { type: "extract_constant", description: "Extract value to constant", requiredParams: ["searchText", "variableName"] },
+    { type: "ollama_generate", description: "[Optional] Use local Ollama LLM for complex tasks (requires OLLAMA_URL)", requiredParams: ["prompt"] },
   ];
 }
 
