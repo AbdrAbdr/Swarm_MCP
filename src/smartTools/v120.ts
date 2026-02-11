@@ -27,6 +27,10 @@ import { addScheduledTask, listScheduledTasks, checkDueTasks, checkMissedTasks, 
 import { discoverPlugins, loadPlugin, loadAllPlugins, ensurePluginDir } from "../workflows/pluginLoader.js";
 import { getAuthStatus, listIssues, createIssueFromTask, closeIssue, syncFromGitHub } from "../workflows/githubApi.js";
 import { runSetupWizard, getWizardPrompt, loadSwarmConfig, configExists } from "../workflows/setupWizard.js";
+import {
+    recordCooccurrence, queryRelated, detectDrift,
+    suggestReservations, getGraphStats, pruneGraph, takeSnapshot,
+} from "../workflows/cooccurrenceGraph.js";
 
 // Helper
 function wrapResult(result: unknown) {
@@ -80,13 +84,16 @@ const memoryInputSchema = z.object({
         "index_task", "index_file", "index_review",
         "smart_context", "find_error_solution", "find_conflict_resolution",
         "record_error_fix", "record_conflict_resolution",
+        // Co-occurrence Graph (Drift-Memory)
+        "cograph_record", "cograph_query", "cograph_drift",
+        "cograph_suggest", "cograph_stats", "cograph_prune", "cograph_snapshot",
     ]).describe("Action to perform"),
     repoPath: z.string().optional(),
     taskId: z.string().optional().describe("Task ID"),
     title: z.string().optional().describe("Task title"),
     description: z.string().optional().describe("Description"),
     solution: z.string().optional().describe("Solution applied"),
-    files: z.array(z.string()).optional().describe("Files involved"),
+    files: z.array(z.string()).optional().describe("Files involved / co-occurrence set"),
     assignee: z.string().optional().describe("Agent name"),
     filePath: z.string().optional().describe("File path"),
     changeType: z.enum(["created", "modified", "deleted"]).optional().describe("Change type"),
@@ -103,17 +110,24 @@ const memoryInputSchema = z.object({
     taskTitle: z.string().optional().describe("Task title for context search"),
     taskDescription: z.string().optional().describe("Task description for context search"),
     maxResults: z.number().optional().describe("Max results"),
+    // Co-occurrence Graph fields
+    topK: z.number().optional().describe("Top K related files"),
+    minWeight: z.number().optional().describe("Min edge weight for filtering"),
+    maxSuggestions: z.number().optional().describe("Max suggestions to return"),
+    maxAgeDays: z.number().optional().describe("Max age in days for pruning"),
+    sinceTs: z.number().optional().describe("Timestamp for drift detection baseline"),
 }).strict();
 
 export const swarmMemoryTool = [
     "swarm_memory",
     {
         title: "Swarm Memory",
-        description: `Auto-index tasks/files/reviews into vector memory, smart context injection, self-correction & conflict resolution memory.
+        description: `Auto-index tasks/files/reviews into vector memory, smart context injection, self-correction & conflict resolution memory, co-occurrence graph (drift-memory).
 
 Index Actions: index_task, index_file, index_review
 Query Actions: smart_context, find_error_solution, find_conflict_resolution
-Record Actions: record_error_fix, record_conflict_resolution`,
+Record Actions: record_error_fix, record_conflict_resolution
+CoGraph Actions: cograph_record, cograph_query, cograph_drift, cograph_suggest, cograph_stats, cograph_prune, cograph_snapshot`,
         inputSchema: memoryInputSchema,
         outputSchema: z.any(),
     },
@@ -140,6 +154,21 @@ Record Actions: record_error_fix, record_conflict_resolution`,
                 return wrapResult(await recordErrorFix(input as Parameters<typeof recordErrorFix>[0]));
             case "record_conflict_resolution":
                 return wrapResult(await recordConflictResolution(input as Parameters<typeof recordConflictResolution>[0]));
+            // Co-occurrence Graph (Drift-Memory)
+            case "cograph_record":
+                return wrapResult(await recordCooccurrence({ repoPath: input.repoPath, files: input.files || [], agent: input.agent }));
+            case "cograph_query":
+                return wrapResult(await queryRelated({ repoPath: input.repoPath, filePath: input.filePath || "", topK: input.topK }));
+            case "cograph_drift":
+                return wrapResult(await detectDrift({ repoPath: input.repoPath, sinceTs: input.sinceTs }));
+            case "cograph_suggest":
+                return wrapResult(await suggestReservations({ repoPath: input.repoPath, filePath: input.filePath || "", minWeight: input.minWeight, maxSuggestions: input.maxSuggestions }));
+            case "cograph_stats":
+                return wrapResult(await getGraphStats({ repoPath: input.repoPath }));
+            case "cograph_prune":
+                return wrapResult(await pruneGraph({ repoPath: input.repoPath, minWeight: input.minWeight, maxAgeDays: input.maxAgeDays }));
+            case "cograph_snapshot":
+                return wrapResult(await takeSnapshot({ repoPath: input.repoPath }));
             default:
                 throw new Error(`Unknown action: ${input.action}`);
         }

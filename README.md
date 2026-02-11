@@ -59,7 +59,7 @@ When you use multiple AI tools simultaneously, they often collide: editing the s
 
 ## 🛠 35 Smart Tools: The Swarm Toolkit
 
-In v1.2.0, we expanded to **35 Smart Tools** (from 26 in v1.1.x) — 9 new tools for secrets, analytics, embeddings, vector backends, auto-indexing, agent profiles, scheduled tasks, and plugins. Each tool uses an `action` parameter to expose multiple operations.
+In v1.2.1, we expanded to **35 Smart Tools** (from 26 in v1.1.x) — 9 new tools for secrets, analytics, embeddings, vector backends, auto-indexing (Drift-Memory), agent profiles, scheduled tasks, and plugins. Each tool uses an `action` parameter to expose multiple operations.
 
 ### 🚀 Core System (2)
 
@@ -133,7 +133,7 @@ In v1.2.0, we expanded to **35 Smart Tools** (from 26 in v1.1.x) — 9 new tools
 |---|------|-------------|-------------|
 | 27 | **swarm_vault** | Secret management (AES-256-GCM) | `init`, `unlock`, `set`, `get`, `delete`, `list`, `rotate`, `export`, `import`, `lock`, `status`, `audit` |
 | 28 | **swarm_analytics** | Task/event metrics & storage | `log_task`, `log_event`, `get_tasks`, `get_events`, `get_metrics`, `summary`, `cleanup` |
-| 29 | **swarm_memory** | Auto-index & smart context | `index_task`, `index_file`, `index_review`, `smart_context`, `find_error_solution`, `record_error_fix` |
+| 29 | **swarm_memory** | Drift-Memory (Co-occurrence) + Context | `index_*`, `smart_*`, `cograph_record`, `cograph_query`, `cograph_drift`, `cograph_suggest` |
 | 30 | **swarm_embeddings** | Multi-provider embeddings + backends | `embed`, `health`, `costs`, `backend_status`, `backend_migrate`, `backend_switch`, `backend_health` |
 | 31 | **swarm_profiles** | Agent profiles & specialization | `get`, `list`, `default`, `instructions` |
 | 32 | **swarm_scheduler** | Cron-based task scheduler | `add`, `list`, `check_due`, `check_missed`, `remove` |

@@ -1,6 +1,6 @@
 {
   "name": "mcp-swarm",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": false,
   "type": "module",
   "description": "Universal AI agent coordination platform with 35 smart tools, encrypted Vault, embedding cascade (Ollama/OpenAI/builtin), 6 vector backends, agent profiles, scheduled tasks, plugin system, and GitHub sync",

@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { gitTry, normalizeLineEndings } from "./git.js";
 import { getRepoRoot } from "./repo.js";
+import { queryRelated } from "./cooccurrenceGraph.js";
 
 export type ConflictPrediction = {
   file: string;
@@ -54,6 +55,20 @@ export async function predictConflicts(input: {
         score += conflicts * 15;
         reasons.push(`${conflicts} historical conflicts`);
       }
+    }
+
+    // Co-occurrence graph boost: if related files are also being edited
+    try {
+      const related = await queryRelated({ repoPath: input.repoPath, filePath: file, topK: 20 });
+      const editSet = new Set(input.filesToEdit.map(f => f.replace(/\\/g, "/").replace(/^\.\//, "")));
+      const coLinks = related.related.filter(r => editSet.has(r.file) && r.file !== file.replace(/\\/g, "/").replace(/^\.\//, ""));
+      if (coLinks.length > 0) {
+        const coBoost = Math.min(25, coLinks.reduce((sum, l) => sum + Math.min(l.weight * 3, 10), 0));
+        score += coBoost;
+        reasons.push(`co-occurrence links with ${coLinks.length} other edited files`);
+      }
+    } catch {
+      // Non-critical: co-occurrence data may not exist yet
     }
 
     predictions.push({

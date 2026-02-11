@@ -18,6 +18,7 @@ import { cascadeEmbed } from "./embeddings.js";
 import { getActiveBackend, VectorDocument } from "./vectorBackend.js";
 import { loadSwarmConfig } from "./setupWizard.js";
 import { quickLogEvent } from "./analyticsStore.js";
+import { recordCooccurrence } from "./cooccurrenceGraph.js";
 
 // ============ AUTO-INDEX ============
 
@@ -74,6 +75,20 @@ export async function indexTask(input: {
     });
 
     await quickLogEvent(input.repoPath || process.cwd(), "auto_index", `Indexed task: ${input.title}`);
+
+    // Automatic co-occurrence recording (Drift-Memory)
+    if (input.files && input.files.length >= 2) {
+        try {
+            await recordCooccurrence({
+                repoPath: input.repoPath,
+                files: input.files,
+                agent: input.assignee,
+            });
+        } catch {
+            // Non-critical: don't fail indexing if cograph recording fails
+        }
+    }
+
     return { indexed: true, docId };
 }
 

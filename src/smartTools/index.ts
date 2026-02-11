@@ -1,5 +1,5 @@
 /**
- * MCP Swarm v1.2.0 - Smart Tools Index
+ * MCP Swarm v1.2.1 - Smart Tools Index
  * 35 Consolidated Smart Tools
  *
  * Consolidation rationale: IDE tool slot optimization.

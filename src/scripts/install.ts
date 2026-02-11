@@ -30,7 +30,7 @@ async function fileExists(p: string): Promise<boolean> {
 
 async function installAgentRules(fileName: string, projectPath: string): Promise<boolean> {
   const rulesPath = path.join(projectPath, fileName);
-  
+
   // Check if file exists and has content
   let existingContent = "";
   try {
@@ -45,7 +45,7 @@ async function installAgentRules(fileName: string, projectPath: string): Promise
   }
 
   // Append or create
-  const newContent = existingContent 
+  const newContent = existingContent
     ? existingContent + "\n\n" + AGENT_RULES_CONTENT
     : AGENT_RULES_CONTENT;
 
@@ -70,7 +70,7 @@ function getMcpConfig(projectPath: string): string {
 }
 
 async function main() {
-  console.log("🐝 MCP Swarm v0.9.0 - Agent Rules Installer");
+  console.log("🐝 MCP Swarm v1.2.1 - Agent Rules Installer");
   console.log("=".repeat(50));
 
   // Get project path
@@ -130,8 +130,8 @@ async function main() {
   console.log("   OpenCode:       ~/.config/opencode/opencode.json");
   console.log("   VS Code:        Roo-Cline extension settings");
 
-  console.log("\n📊 MCP Swarm v0.9.0 Statistics:");
-  console.log("   - 41 Smart Tools (consolidated from 168+)");
+  console.log("\n📊 MCP Swarm v1.2.1 Statistics:");
+  console.log("   - 35 Smart Tools (consolidated from 168+)");
   console.log("   - Each tool has multiple actions via 'action' parameter");
   console.log("   - Supports 50+ agents simultaneously");
 

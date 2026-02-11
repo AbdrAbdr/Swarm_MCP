@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.1] - 2026-02-11
+
+### What's New
+
+#### 🧠 Drift-Memory (Co-occurrence Graph)
+- **Passive co-occurrence tracking** — Automatically records which files are edited together during tasks
+- **Semantic relationship graph** — Builds a weighted map of file dependencies beyond static analysis
+- **Drift detection** — Detects structural changes and "design drift" by comparing graph snapshots
+- **Smart reservation suggestions** — Suggests locking related files to prevent downstream conflicts
+- **Graph analytics** — Hotspot detection and category distribution (auth, ui, api, etc.)
+- **New actions in `swarm_memory`** — `cograph_record`, `cograph_query`, `cograph_drift`, `cograph_suggest`, `cograph_stats`, `cograph_prune`, `cograph_snapshot`
+
+### Improved
+- **Updated Smart Tools list to 35** — Reflecting all v1.2.x capabilities
+- **Full ESM consistency** — Final cleanup of remaining CJS-style fragments
+- **Agent Rule updates** — All rule files (`GEMINI.md`, `CLAUDE.md`, etc.) synchronized to v1.2.1
+
+---
+
 ## [1.2.0] - 2026-02-10
 
 ### What's New

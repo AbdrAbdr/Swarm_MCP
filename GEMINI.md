@@ -1,4 +1,4 @@
-# MCP Swarm Agent Rules (v1.2.0) - Antigravity/Gemini Edition
+# MCP Swarm Agent Rules (v1.2.1) - Antigravity/Gemini Edition
 
 ## CRITICAL: repoPath Parameter
 
@@ -97,6 +97,7 @@ Consolidated from 54+ tools — zero feature loss, fewer IDE slots. Each tool us
 | **swarm_agent** | register, whoami, init, companion_status, companion_stop |
 | **swarm_control** | stop, resume, status, pulse_update, pulse_get |
 | **swarm_task** | create, list, update, decompose, briefing_save, briefing_load |
+| **swarm_memory** | index_*, smart_*, find_*, record_*, cograph_* (drift-memory) |
 | **swarm_plan** | create, add, next, start, complete, prompt, export, spec_start, spec_phase |
 | **swarm_file** | reserve, release, list, forecast, snapshot_create, snapshot_rollback |
 | **swarm_worktree** | create, list, remove, hooks_install, hooks_run |
@@ -140,6 +141,7 @@ swarm_agent({ action: "register", repoPath })                    // Get agent na
 swarm_orchestrator({ action: "elect", repoPath })                // Become orchestrator  
 swarm_task({ action: "list", repoPath })                         // List all tasks
 swarm_file({ action: "reserve", repoPath, filePath, agent })     // Lock file
+swarm_memory({ action: "cograph_suggest", repoPath, filePath })  // Suggest related files (Drift-Memory)
 swarm_git({ action: "pr", repoPath, title, body })               // Create PR
 ```
 
